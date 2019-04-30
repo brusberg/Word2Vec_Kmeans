@@ -1,7 +1,7 @@
 #ifndef KERNELS_H_
 #define KERNELS_H_
 #define K_DIM_LIMIT 1000
-
+#include <float.h>
 __constant__ double centroidCONST[K_DIM_LIMIT];
 
 //#include "sm_60_atomic_functions.h"
@@ -92,8 +92,8 @@ __global__ void vectorDistance2UR4(const double * __restrict__ data, const doubl
   if( vector < n){
     for(int centroid = 0; centroid < k; centroid++){
       double distance = 0;
-      for(int dimension = 0; dimension < dim; dimension+=4){
-	double temp = centroids[centroid*dim+dimension+] - data[vector*dim+dimension];
+      for(int dimension = 0; dimension < dim; dimension += 4){
+	double temp = centroids[centroid*dim+dimension] - data[vector*dim+dimension];
 	distance += temp*temp;
 	temp = centroids[centroid*dim+dimension+1] - data[vector*dim+dimension+1];
 	distance += temp*temp;
@@ -160,8 +160,9 @@ __global__ void centroidDistance1(double * data, double *  centroids, double *  
   distances[(vector*k)+centroid] = sqrt(distance);;
 }
 
-__global__ void centroidDistance2(const double * __restrict__ data,const double * __restrict__ centroids, double * __restrict__  distances, int k, int dim, int centroid){
+__global__ void centroidDistance2(const double * __restrict__ data,const double * __restrict__ centroids, double * __restrict__  distances, int k, int dim, int centroid, int n){
   long vector = blockIdx.x * blockDim.x +threadIdx.x;
+  if(vector >= n) return;
   double distance = 0;
   for(int dimension = 0; dimension < dim; dimension++){
     double temp = centroids[centroid*dim+dimension] - data[vector*dim+dimension];
@@ -170,8 +171,9 @@ __global__ void centroidDistance2(const double * __restrict__ data,const double 
   distances[(vector*k)+centroid] = sqrt(distance);;
 }
 
-__global__ void centroidDistance2UR2(const double * __restrict__ data,const double * __restrict__ centroids, double * __restrict__  distances, int k, int dim, int centroid){
+__global__ void centroidDistance2UR2(const double * __restrict__ data,const double * __restrict__ centroids, double * __restrict__  distances, int k, int dim, int centroid, int n){
   long vector = blockIdx.x * blockDim.x +threadIdx.x;
+  if(vector >= n) return;
   double distance = 0;
   for(int dimension = 0; dimension < dim; dimension+=2){
     double temp = centroids[centroid*dim+dimension] - data[vector*dim+dimension];
@@ -182,11 +184,12 @@ __global__ void centroidDistance2UR2(const double * __restrict__ data,const doub
   distances[(vector*k)+centroid] = sqrt(distance);;
 }
 
-__global__ void centroidDistance2UR4(const double * __restrict__ data,const double * __restrict__ centroids, double * __restrict__  distances, int k, int dim, int centroid){
+__global__ void centroidDistance2UR4(const double * __restrict__ data,const double * __restrict__ centroids, double * __restrict__  distances, int k, int dim, int centroid, int n){
   long vector = blockIdx.x * blockDim.x +threadIdx.x;
+  if(vector >= n) return;
   double distance = 0;
   for(int dimension = 0; dimension < dim; dimension+=4){
-    double temp = centroids[centroid*dim+dimension+] - data[vector*dim+dimension];
+    double temp = centroids[centroid*dim+dimension] - data[vector*dim+dimension];
     distance += temp*temp;
     temp = centroids[centroid*dim+dimension+1] - data[vector*dim+dimension+1];
     distance += temp*temp;
@@ -198,10 +201,11 @@ __global__ void centroidDistance2UR4(const double * __restrict__ data,const doub
   distances[(vector*k)+centroid] = sqrt(distance);;
 }
 
-__global__ void centroidDistance2UR8(const double * __restrict__ data,const double * __restrict__ centroids, double * __restrict__  distances, int k, int dim, int centroid){
+__global__ void centroidDistance2UR8(const double * __restrict__ data,const double * __restrict__ centroids, double * __restrict__  distances, int k, int dim, int centroid, int n){
   long vector = blockIdx.x * blockDim.x +threadIdx.x;
+  if(vector >= n) return;
   double distance = 0;
-  for(int dimension = 0; dimension < dim; dimension+=4){
+  for(int dimension = 0; dimension < dim; dimension+=8){
     double temp = centroids[centroid*dim+dimension] - data[vector*dim+dimension];
     distance += temp*temp;
     temp = centroids[centroid*dim+dimension+1] - data[vector*dim+dimension+1];
@@ -246,66 +250,74 @@ __global__ void centroidConstantDistance1(double * data,  double *  distances, i
   distances[(vector*k)+centroid] = sqrt(distance);
 }
 
-__global__ void centroidConstantDistance2(const double * __restrict__ data,  double * __restrict__  distances, int k, int dim, int centroid){
+__global__ void centroidConstantDistance2(const double * __restrict__ data,  double * __restrict__  distances, int k, int dim, int centroid, int n){
   long  vector = blockIdx.x * blockDim.x +threadIdx.x;
-  double distance = 0;
-  for(int dimension = 0; dimension < dim; dimension++){
-    double temp = centroidCONST[dimension] - data[vector*dim+dimension];
-    distance += temp*temp;
+  if (vector < n){
+    double distance = 0;
+    for(int dimension = 0; dimension < dim; dimension++){
+      double temp = centroidCONST[dimension] - data[vector*dim+dimension];
+      distance += temp*temp;
+    }
+    distances[(vector*k)+centroid] = sqrt(distance);
   }
-  distances[(vector*k)+centroid] = sqrt(distance);
 }
 
-__global__ void centroidConstantDistance2UR2(const double * __restrict__ data,  double * __restrict__  distances, int k, int dim, int centroid){
+__global__ void centroidConstantDistance2UR2(const double * __restrict__ data,  double * __restrict__  distances, int k, int dim, int centroid, int n){
   long  vector = blockIdx.x * blockDim.x +threadIdx.x;
-  double distance = 0;
-  for(int dimension = 0; dimension < dim; dimension+=2){
-    double temp = centroidCONST[dimension] - data[vector*dim+dimension];
-    distance += temp*temp;
-    temp = centroidCONST[dimension+1] - data[vector*dim+dimension+1];
-    distance += temp*temp;
+  if(vector < n){
+    double distance = 0;
+    for(int dimension = 0; dimension < dim; dimension+=2){
+      double temp = centroidCONST[dimension] - data[vector*dim+dimension];
+      distance += temp*temp;
+      temp = centroidCONST[dimension+1] - data[vector*dim+dimension+1];
+      distance += temp*temp;
+    }
+    distances[(vector*k)+centroid] = sqrt(distance);
   }
-  distances[(vector*k)+centroid] = sqrt(distance);
 }
 
-__global__ void centroidConstantDistance2UR4(const double * __restrict__ data,  double * __restrict__  distances, int k, int dim, int centroid){
+__global__ void centroidConstantDistance2UR4(const double * __restrict__ data,  double * __restrict__  distances, int k, int dim, int centroid, int n){
   long  vector = blockIdx.x * blockDim.x +threadIdx.x;
-  double distance = 0;
-  for(int dimension = 0; dimension < dim; dimension+=4){
-    double temp = centroidCONST[dimension] - data[vector*dim+dimension];
-    distance += temp*temp;
-    temp = centroidCONST[dimension+1] - data[vector*dim+dimension+1];
-    distance += temp*temp;
-    temp = centroidCONST[dimension+2] - data[vector*dim+dimension+2];
-    distance += temp*temp;
-    temp = centroidCONST[dimension+3] - data[vector*dim+dimension+3];
-    distance += temp*temp;
+  if(vector < n) {
+    double distance = 0;
+    for(int dimension = 0; dimension < dim; dimension+=4){
+      double temp = centroidCONST[dimension] - data[vector*dim+dimension];
+      distance += temp*temp;
+      temp = centroidCONST[dimension+1] - data[vector*dim+dimension+1];
+      distance += temp*temp;
+      temp = centroidCONST[dimension+2] - data[vector*dim+dimension+2];
+      distance += temp*temp;
+      temp = centroidCONST[dimension+3] - data[vector*dim+dimension+3];
+      distance += temp*temp;
+    }
+    distances[(vector*k)+centroid] = sqrt(distance);
   }
-  distances[(vector*k)+centroid] = sqrt(distance);
 }
 
-__global__ void centroidConstantDistance2UR8(const double * __restrict__ data,  double * __restrict__  distances, int k, int dim, int centroid){
+__global__ void centroidConstantDistance2UR8(const double * __restrict__ data,  double * __restrict__  distances, int k, int dim, int centroid, int n){
   long  vector = blockIdx.x * blockDim.x +threadIdx.x;
-  double distance = 0;
-  for(int dimension = 0; dimension < dim; dimension+=4){
-    double temp = centroidCONST[dimension] - data[vector*dim+dimension];
-    distance += temp*temp;
-    temp = centroidCONST[dimension+1] - data[vector*dim+dimension+1];
-    distance += temp*temp;
-    temp = centroidCONST[dimension+2] - data[vector*dim+dimension+2];
-    distance += temp*temp;
-    temp = centroidCONST[dimension+3] - data[vector*dim+dimension+3];
-    distance += temp*temp;
-    temp = centroidCONST[dimension+5] - data[vector*dim+dimension+5];
-    distance += temp*temp;
-    temp = centroidCONST[dimension+6] - data[vector*dim+dimension+6];
-    distance += temp*temp;
-    temp = centroidCONST[dimension+7] - data[vector*dim+dimension+7];
-    distance += temp*temp;
-    temp = centroidCONST[dimension+8] - data[vector*dim+dimension+8];
-    distance += temp*temp;
+  if(vector < n){
+    double distance = 0;
+    for(int dimension = 0; dimension < dim; dimension+=8){
+      double temp = centroidCONST[dimension] - data[vector*dim+dimension];
+      distance += temp*temp;
+      temp = centroidCONST[dimension+1] - data[vector*dim+dimension+1];
+      distance += temp*temp;
+      temp = centroidCONST[dimension+2] - data[vector*dim+dimension+2];
+      distance += temp*temp;
+      temp = centroidCONST[dimension+3] - data[vector*dim+dimension+3];
+      distance += temp*temp;
+      temp = centroidCONST[dimension+4] - data[vector*dim+dimension+4];
+      distance += temp*temp;
+      temp = centroidCONST[dimension+5] - data[vector*dim+dimension+5];
+      distance += temp*temp;
+      temp = centroidCONST[dimension+6] - data[vector*dim+dimension+6];
+      distance += temp*temp;
+      temp = centroidCONST[dimension+7] - data[vector*dim+dimension+7];
+      distance += temp*temp;
+    }
+    distances[(vector*k)+centroid] = sqrt(distance);
   }
-  distances[(vector*k)+centroid] = sqrt(distance);
 }
 
 
@@ -317,7 +329,7 @@ __global__ void labelMins(int * labels, double *distances, int k, int n){
   long vector = blockIdx.x * blockDim.x +threadIdx.x;
   if(vector < n){
     int minIndex = 0;
-    double min = 9999999;
+    double min = DBL_MAX;
     
     for(int centroid = 0; centroid < k; centroid++){
       if( distances[(vector*k)+centroid] < min){
@@ -337,7 +349,7 @@ __global__ void labelMins1(int * __restrict__ labels,const double * __restrict__
   long vector = blockIdx.x * blockDim.x +threadIdx.x;
   if(vector < n){
     int minIndex = 0;
-    double min = 9999999;
+    double min = DBL_MAX;
     
     for(int centroid = 0; centroid < k; centroid++){
       if( distances[(vector*k)+centroid] < min){
@@ -348,7 +360,6 @@ __global__ void labelMins1(int * __restrict__ labels,const double * __restrict__
     labels[vector] = minIndex;
   }
 }
-
 
 __global__ void vectorLabelDistance(double * data, double *  centroids, double *  distances, int k, int dim, int n, int *labels){
   long vector = blockIdx.x * blockDim.x + threadIdx.x;
@@ -364,7 +375,7 @@ __global__ void vectorLabelDistance(double * data, double *  centroids, double *
     }
   }
   int minIndex = 0;
-  double min = 9999999;
+  double min = DBL_MAX;
   
   for(int centroid = 0; centroid < k; centroid++){
     if( distances[(vector*k)+centroid] < min){
@@ -375,7 +386,7 @@ __global__ void vectorLabelDistance(double * data, double *  centroids, double *
   labels[vector] = minIndex;
 }
 
-__global__ void vectorLabelDistance1(const double * __restrict__ data, double * __restrict__  centroids, double * __restrict__ distances, int k, int dim, int n, int * __resetrict__ labels){
+__global__ void vectorLabelDistance1(const double * __restrict__ data, double * __restrict__  centroids, double * __restrict__ distances, int k, int dim, int n, int * __restrict__ labels){
   long vector = blockIdx.x * blockDim.x + threadIdx.x;
   if(vector < n){
     for(int centroid = 0; centroid < k; centroid++){
@@ -389,7 +400,7 @@ __global__ void vectorLabelDistance1(const double * __restrict__ data, double * 
     }
   }
   int minIndex = 0;
-  double min = 9999999;
+  double min = DBL_MAX;
   
   for(int centroid = 0; centroid < k; centroid++){
     if( distances[(vector*k)+centroid] < min){
@@ -400,12 +411,234 @@ __global__ void vectorLabelDistance1(const double * __restrict__ data, double * 
   labels[vector] = minIndex;
 }
 
+__global__ void vectorLabelDistance1UR2(const double * __restrict__ data, double * __restrict__  centroids, double * __restrict__ distances, int k, int dim, int n, int * __restrict__ labels){
+  long vector = blockIdx.x * blockDim.x + threadIdx.x;
+  if(vector < n){
+    for(int centroid = 0; centroid < k; centroid++){
+      double distance = 0;
+      for(int dimension = 0; dimension < dim; dimension+=2){
+	double temp = centroids[centroid*dim+dimension] - data[vector*dim+dimension];
+	distance += temp * temp;
+	temp = centroids[centroid*dim+dimension+1] - data[vector*dim+dimension+1];
+	distance += temp*temp;
+
+      }
+      distance = sqrt(distance);
+      distances[(vector*k)+centroid] = distance;
+    }
+  }
+  int minIndex = 0;
+  double min = DBL_MAX;
+  
+  for(int centroid = 0; centroid < k; centroid++){
+    if( distances[(vector*k)+centroid] < min){
+      minIndex = centroid;
+      min = distances[(vector*k)+centroid];
+    }
+  }
+  labels[vector] = minIndex;
+}
+__global__ void vectorLabelDistance1UR4(const double * __restrict__ data, double * __restrict__  centroids, double * __restrict__ distances, int k, int dim, int n, int * __restrict__ labels){
+  long vector = blockIdx.x * blockDim.x + threadIdx.x;
+  if(vector < n){
+    for(int centroid = 0; centroid < k; centroid++){
+      double distance = 0;
+      for(int dimension = 0; dimension < dim; dimension+=4){
+	double temp = centroids[centroid*dim+dimension] - data[vector*dim+dimension];
+	distance += temp * temp;
+	temp = centroids[centroid*dim+dimension+1] - data[vector*dim+dimension+1];
+	distance += temp*temp;
+	temp = centroids[centroid*dim+dimension+2] - data[vector*dim+dimension+2];
+	distance += temp*temp;
+	temp = centroids[centroid*dim+dimension+3] - data[vector*dim+dimension+3];
+	distance += temp*temp;
+      }
+      distance = sqrt(distance);
+      distances[(vector*k)+centroid] = distance;
+    }
+  }
+  int minIndex = 0;
+  double min = DBL_MAX;
+  
+  for(int centroid = 0; centroid < k; centroid++){
+    if( distances[(vector*k)+centroid] < min){
+      minIndex = centroid;
+      min = distances[(vector*k)+centroid];
+    }
+  }
+  labels[vector] = minIndex;
+}
+__global__ void vectorLabelDistance1UR8(const double * __restrict__ data, double * __restrict__  centroids, double * __restrict__ distances, int k, int dim, int n, int * __restrict__ labels){
+  long vector = blockIdx.x * blockDim.x + threadIdx.x;
+  if(vector < n){
+    for(int centroid = 0; centroid < k; centroid++){
+      double distance = 0;
+      for(int dimension = 0; dimension < dim; dimension+=8){
+	double temp = centroids[centroid*dim+dimension] - data[vector*dim+dimension];
+	distance += temp * temp;
+	temp = centroids[centroid*dim+dimension+1] - data[vector*dim+dimension+1];
+	distance += temp*temp;
+	temp = centroids[centroid*dim+dimension+2] - data[vector*dim+dimension+2];
+	distance += temp*temp;
+	temp = centroids[centroid*dim+dimension+3] - data[vector*dim+dimension+3];
+	distance += temp*temp;
+	temp = centroids[centroid*dim+dimension+4] - data[vector*dim+dimension+4];
+	distance += temp*temp;
+	temp = centroids[centroid*dim+dimension+5] - data[vector*dim+dimension+5];
+	distance += temp*temp;
+	temp = centroids[centroid*dim+dimension+6] - data[vector*dim+dimension+6];
+	distance += temp*temp;
+	temp = centroids[centroid*dim+dimension+7] - data[vector*dim+dimension+7];
+	distance += temp*temp;
+      }
+      distance = sqrt(distance);
+      distances[(vector*k)+centroid] = distance;
+    }
+  }
+  int minIndex = 0;
+  double min = DBL_MAX;
+  
+  for(int centroid = 0; centroid < k; centroid++){
+    if( distances[(vector*k)+centroid] < min){
+      minIndex = centroid;
+      min = distances[(vector*k)+centroid];
+    }
+  }
+  labels[vector] = minIndex;
+}
+
+__global__ void vectorLabelDistance1(const double * __restrict__ data, double * __restrict__  centroids, double * __restrict__ distances, int k, int dim, int n, int * __restrict__ labels, int * __restrict__ sizes){
+  long vector = blockIdx.x * blockDim.x + threadIdx.x;
+  if(vector < n){
+    for(int centroid = 0; centroid < k; centroid++){
+      double distance = 0;
+      for(int dimension = 0; dimension < dim; dimension++){
+	double temp = centroids[centroid*dim+dimension] - data[vector*dim+dimension];
+	distance += temp * temp;
+      }
+      distance = sqrt(distance);
+      distances[(vector*k)+centroid] = distance;
+    }
+  }
+  int minIndex = 0;
+  double min = DBL_MAX;
+  
+  for(int centroid = 0; centroid < k; centroid++){
+    if( distances[(vector*k)+centroid] < min){
+      minIndex = centroid;
+      min = distances[(vector*k)+centroid];
+    }
+  }
+  labels[vector] = minIndex;
+  sizes[minIndex] += 1;
+}
+
+__global__ void vectorLabelDistance1UR2(const double * __restrict__ data, double * __restrict__  centroids, double * __restrict__ distances, int k, int dim, int n, int * __restrict__ labels,int * __restrict__ sizes){
+  long vector = blockIdx.x * blockDim.x + threadIdx.x;
+  if(vector < n){
+    for(int centroid = 0; centroid < k; centroid++){
+      double distance = 0;
+      for(int dimension = 0; dimension < dim; dimension+=2){
+	double temp = centroids[centroid*dim+dimension] - data[vector*dim+dimension];
+	distance += temp * temp;
+	temp = centroids[centroid*dim+dimension+1] - data[vector*dim+dimension+1];
+	distance += temp*temp;
+
+      }
+      distance = sqrt(distance);
+      distances[(vector*k)+centroid] = distance;
+    }
+  }
+  int minIndex = 0;
+  double min = DBL_MAX;
+  
+  for(int centroid = 0; centroid < k; centroid++){
+    if( distances[(vector*k)+centroid] < min){
+      minIndex = centroid;
+      min = distances[(vector*k)+centroid];
+    }
+  }
+  labels[vector] = minIndex;
+  sizes[minIndex] += 1;
+}
+__global__ void vectorLabelDistance1UR4(const double * __restrict__ data, double * __restrict__  centroids, double * __restrict__ distances, int k, int dim, int n, int * __restrict__ labels, int * __restrict__ sizes){
+  long vector = blockIdx.x * blockDim.x + threadIdx.x;
+  if(vector < n){
+    for(int centroid = 0; centroid < k; centroid++){
+      double distance = 0;
+      for(int dimension = 0; dimension < dim; dimension+=4){
+	double temp = centroids[centroid*dim+dimension] - data[vector*dim+dimension];
+	distance += temp * temp;
+	temp = centroids[centroid*dim+dimension+1] - data[vector*dim+dimension+1];
+	distance += temp*temp;
+	temp = centroids[centroid*dim+dimension+2] - data[vector*dim+dimension+2];
+	distance += temp*temp;
+	temp = centroids[centroid*dim+dimension+3] - data[vector*dim+dimension+3];
+	distance += temp*temp;
+      }
+      distance = sqrt(distance);
+      distances[(vector*k)+centroid] = distance;
+    }
+  }
+  int minIndex = 0;
+  double min = DBL_MAX;
+  
+  for(int centroid = 0; centroid < k; centroid++){
+    if( distances[(vector*k)+centroid] < min){
+      minIndex = centroid;
+      min = distances[(vector*k)+centroid];
+    }
+  }
+  labels[vector] = minIndex;
+  sizes[minIndex] += 1;
+}
+__global__ void vectorLabelDistance1UR8(const double * __restrict__ data, double * __restrict__  centroids, double * __restrict__ distances, int k, int dim, int n, int * __restrict__ labels,int * __restrict__ sizes){
+  long vector = blockIdx.x * blockDim.x + threadIdx.x;
+  if(vector < n){
+    for(int centroid = 0; centroid < k; centroid++){
+      double distance = 0;
+      for(int dimension = 0; dimension < dim; dimension+=8){
+	double temp = centroids[centroid*dim+dimension] - data[vector*dim+dimension];
+	distance += temp * temp;
+	temp = centroids[centroid*dim+dimension+1] - data[vector*dim+dimension+1];
+	distance += temp*temp;
+	temp = centroids[centroid*dim+dimension+2] - data[vector*dim+dimension+2];
+	distance += temp*temp;
+	temp = centroids[centroid*dim+dimension+3] - data[vector*dim+dimension+3];
+	distance += temp*temp;
+	temp = centroids[centroid*dim+dimension+4] - data[vector*dim+dimension+4];
+	distance += temp*temp;
+	temp = centroids[centroid*dim+dimension+5] - data[vector*dim+dimension+5];
+	distance += temp*temp;
+	temp = centroids[centroid*dim+dimension+6] - data[vector*dim+dimension+6];
+	distance += temp*temp;
+	temp = centroids[centroid*dim+dimension+7] - data[vector*dim+dimension+7];
+	distance += temp*temp;
+      }
+      distance = sqrt(distance);
+      distances[(vector*k)+centroid] = distance;
+    }
+  }
+  int minIndex = 0;
+  double min = DBL_MAX;
+  
+  for(int centroid = 0; centroid < k; centroid++){
+    if( distances[(vector*k)+centroid] < min){
+      minIndex = centroid;
+      min = distances[(vector*k)+centroid];
+    }
+  }
+  labels[vector] = minIndex;
+  sizes[minIndex] += 1;
+}
+
 //Reduction sum and divide
 //Atomic add and divide
 //
 //Reduction problem
 //HORRIBLY SLOW
 //AWScomputer capability is not high enough on aws
+//WOuld try to implement this with thrust but no point because of compute capability
 __global__ void updateMeans(double * data, double * sums, int * labels, int dim, int n){
   //sums is just like centroids/ divide all elements by n
   long vector = blockIdx.x * blockDim.x + threadIdx.x;
@@ -433,93 +666,82 @@ __global__ void updateMeans1(const double * __restrict__ data, double * sums, in
 }
 
 /*
-__global__ void fine_reduce(const float* __restrict__ data_x,
-                            const float* __restrict__ data_y,
-                            int data_size,
-                            const float* __restrict__ means_x,
-                            const float* __restrict__ means_y,
-                            float* __restrict__ new_sums_x,
-                            float* __restrict__ new_sums_y,
-                            int k,
-                            int* __restrict__ counts) {
-  // Essentially three dimensional: n * x, n * y, n * counts.
-  extern __shared__ float shared_data[];
-
-  const int local_index = threadIdx.x;
-  const int global_index = blockIdx.x * blockDim.x + threadIdx.x;
-  if (global_index >= data_size) return;
-
-  // Load the mean values into shared memory.
-  if (local_index < k) {
-    shared_data[local_index] = means_x[local_index];
-    shared_data[k + local_index] = means_y[local_index];
+  __global__ void assign(const float* __restrict__ data_x,
+  const float* __restrict__ data_y,
+  int data_size,
+  const float* __restrict__ means_x,
+  const float* __restrict__ means_y,
+  float* __restrict__ new_sums_x,
+  float* __restrict__ new_sums_y,
+  int k,
+  int* __restrict__ counts) {
+  const int bvector = threadIdx.x;
+  const int vector = blockIdx.x * blockDim.x + threadIdx.x;
+  if (vector >= data_size) return;
+  
+  int minIndex = 0;
+  double min = DBL_MAX;
+  
+  for(int centroid = 0; centroid < k; centroid++){
+  double distance = 0;
+  for(int dimension = 0; dimension < dim; dimension++){
+  double temp = centroids[centroid*dim+dimension] - data[vector*dim+dimension];
+  distance += temp * temp;
   }
-
-  __syncthreads();
-
-  // Assignment step.
-
-  // Load once here.
-  const float x_value = data_x[global_index];
-  const float y_value = data_y[global_index];
-
-  float best_distance = FLT_MAX;
-  int best_cluster = -1;
-  for (int cluster = 0; cluster < k; ++cluster) {
-    const float distance = squared_l2_distance(x_value,
-                                               y_value,
-                                               shared_data[cluster],
-                                               shared_data[k + cluster]);
-    if (distance < best_distance) {
-      best_distance = distance;
-      best_cluster = cluster;
-    }
+  distance = sqrt(distance);
+  if(distance < min){
+  minIndex = centroid;
+  min = distances[(vector*k)+centroid];
   }
-
+  }
+  
   __syncthreads();
 
   // Reduction step.
 
-  const int x = local_index;
-  const int y = local_index + blockDim.x;
-  const int count = local_index + blockDim.x + blockDim.x;
+  const int x = bvector;
+  const int y = bvector + blockDim.x;
+  const int count = bvector + blockDim.x + blockDim.x;
 
-  for (int cluster = 0; cluster < k; ++cluster) {
-    // Zeros if this point (thread) is not assigned to the cluster, else the
-    // values of the point.
-    shared_data[x] = (best_cluster == cluster) ? x_value : 0;
-    shared_data[y] = (best_cluster == cluster) ? y_value : 0;
-    shared_data[count] = (best_cluster == cluster) ? 1 : 0;
-    __syncthreads();
+  for (int centroid = 0; centroid < k; centroid++){
+  // Zeros if this point (thread) is not assigned to the cluster, else the
+  // values of the point.
+  shared_data[x] = (best_cluster == cluster) ? x_value : 0;
+  shared_data[y] = (best_cluster == cluster) ? y_value : 0;
+  shared_data[count] = (best_cluster == cluster) ? 1 : 0;
+  __syncthreads();
 
-    // Tree-reduction for this cluster.
-    for (int stride = blockDim.x / 2; stride > 0; stride /= 2) {
-      if (local_index < stride) {
-        shared_data[x] += shared_data[x + stride];
-        shared_data[y] += shared_data[y + stride];
-        shared_data[count] += shared_data[count + stride];
-      }
-      __syncthreads();
-    }
-
-    // Now shared_data[0] holds the sum for x.
-
-    if (local_index == 0) {
-      const int cluster_index = blockIdx.x * k + cluster;
-      new_sums_x[cluster_index] = shared_data[x];
-      new_sums_y[cluster_index] = shared_data[y];
-      counts[cluster_index] = shared_data[count];
-    }
-    __syncthreads();
+  // Tree-reduction for this cluster.
+  for (int stride = blockDim.x / 2; stride > 0; stride /= 2) {
+  if (local_index < stride) {
+  for(int d = 0; d < dim; d++){
+  data[x] += data[x + stride];
   }
-}
+  data[y] += data[y + stride];
+  shared_data[count] += shared_data[count + stride];
+  }
+  __syncthreads();
+  }
+      
+  // Now shared_data[0] holds the sum for x.
 
-__global__ void coarse_reduce(float* __restrict__ means_x,
-                              float* __restrict__ means_y,
-                              float* __restrict__ new_sum_x,
-                              float* __restrict__ new_sum_y,
-                              int k,
-                              int* __restrict__ counts) {
+  if (bvec == 0) {
+  const int centroid_index = blockIdx.x * k + centroid;
+  for(int d = 0; d < dim; d++){
+  new_centroids[centroid_index+d] = centroids[centroid_index+d];
+  }
+  sizes[cluster_index] = sizes[count];
+  }
+  __syncthreads();
+  }
+  }
+  /*
+  __global__ void reduce(float* __restrict__ means_x,
+  float* __restrict__ means_y,
+  float* __restrict__ new_sum_x,
+  float* __restrict__ new_sum_y,
+  int k,
+  int* __restrict__ counts) {
   extern __shared__ float shared_data[];
 
   const int index = threadIdx.x;
@@ -531,23 +753,23 @@ __global__ void coarse_reduce(float* __restrict__ means_x,
   __syncthreads();
 
   for (int stride = blockDim.x / 2; stride >= k; stride /= 2) {
-    if (index < stride) {
-      shared_data[index] += shared_data[index + stride];
-      shared_data[y_offset + index] += shared_data[y_offset + index + stride];
-    }
-    __syncthreads();
+  if (index < stride) {
+  shared_data[index] += shared_data[index + stride];
+  shared_data[y_offset + index] += shared_data[y_offset + index + stride];
+  }
+  __syncthreads();
   }
 
   // The first k threads can recompute their clusters' means now.
   if (index < k) {
-    const int count = max(1, counts[index]);
-    means_x[index] = new_sum_x[index] / count;
-    means_y[index] = new_sum_y[index] / count;
-    new_sum_y[index] = 0;
-    new_sum_x[index] = 0;
-    counts[index] = 0;
+  const int count = max(1, counts[index]);
+  means_x[index] = new_sum_x[index] / count;
+  means_y[index] = new_sum_y[index] / count;
+  new_sum_y[index] = 0;
+  new_sum_x[index] = 0;
+  counts[index] = 0;
   }
-}
+  }
 */
 
 //Dim1[sum for c1, sume for c2, sum for c3...]

@@ -94,7 +94,7 @@ int * cpuGOLD(int n, int k, int iter, int dim, double * data, double * centroids
   return labels;
 }
 
-int * launchVectorDistance(int * labelsGPU, double * data, double *distances,double * centroidsGPU, int sizes){
+int * launchVectorDistance(int * labelsGPU, double * data, double *distances,double * centroidsGPU, int *sizes, int n, int k, int iter, int dim){
   dim3 dimBlock(THREADS_PER_BLOCK);
   dim3 dimGrid(ceil((float)n/(float)THREADS_PER_BLOCK));
   
@@ -176,7 +176,7 @@ int * launchVectorDistance(int * labelsGPU, double * data, double *distances,dou
   return labelsGPU;
 }
 
-int * launchVectorDistanceUR(int * labelsGPU, double * data, double *distances,double * centroidsGPU, int sizes, int dim){
+int * launchVectorDistanceUR(int * labelsGPU, double * data, double *distances,double * centroidsGPU, int * sizes, int n, int k, int iter, int dim){
   dim3 dimBlock(THREADS_PER_BLOCK);
   dim3 dimGrid(ceil((float)n/(float)THREADS_PER_BLOCK));
   
@@ -208,7 +208,7 @@ int * launchVectorDistanceUR(int * labelsGPU, double * data, double *distances,d
     }else if(dim%2==0){
       vectorDistance2UR2<<<dimGrid, dimBlock>>>(dataD, centroidsD, distancesD, k, dim, n);
     }else{
-      vectorDistance<<<dimGrid, dimBlock>>>(dataD, centroidsD, distancesD, k, dim, n);
+      vectorDistance2<<<dimGrid, dimBlock>>>(dataD, centroidsD, distancesD, k, dim, n);
     }
     cudaMemcpy(distances, distancesD, n * k * sizeof(double), cudaMemcpyDeviceToHost);
 
@@ -265,10 +265,12 @@ int * launchVectorDistanceUR(int * labelsGPU, double * data, double *distances,d
   return labelsGPU;
 }
 
-int * launchCentroidDistance(int * labelsGPU, double * data, double *distances, doubles* centroidsGPU, int sizes){
+int * launchCentroidDistanceUR(int * labelsGPU, double * data, double *distances, double* centroidsGPU, int *sizes, int n, int k, int iter, int dim){
   dim3 dimBlock(THREADS_PER_BLOCK);
   dim3 dimGrid(ceil((float)n/(float)THREADS_PER_BLOCK));
 
+  double *distancesD, *centroidsD, *dataD;
+  
   cudaError_t code = cudaMalloc(&distancesD, n * k * sizeof(double));
   if(code!=cudaSuccess){
     fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
@@ -283,7 +285,7 @@ int * launchCentroidDistance(int * labelsGPU, double * data, double *distances, 
   }
   cudaMemcpy(dataD,data, n * dim * sizeof(double), cudaMemcpyHostToDevice);
   
-  b = 0;
+  int b = 0;
   while(b < iter){
     //for each vector
     //find the distance to each centroid
@@ -298,7 +300,7 @@ int * launchCentroidDistance(int * labelsGPU, double * data, double *distances, 
       }else if(dim%2==0){
 	centroidDistance2UR2<<<dimGrid, dimBlock>>>(dataD, centroidsD, distancesD, k, dim, centroid, n);
       }else{
-	centroidDistance<<<dimGrid, dimBlock>>>(dataD, centroidsD, distancesD, k, dim, centroid, n);
+	centroidDistance2<<<dimGrid, dimBlock>>>(dataD, centroidsD, distancesD, k, dim, centroid, n);
       }
     }
     cudaMemcpy(distances, distancesD, n * k * sizeof(double), cudaMemcpyDeviceToHost);
@@ -354,10 +356,12 @@ int * launchCentroidDistance(int * labelsGPU, double * data, double *distances, 
   return labelsGPU;
 }
 
-int * launchCentroidDistanceUR(int * labelsGPU, double * data, double *distances, doubles* centroidsGPU, int sizes, int dim){
+int * launchCentroidDistance(int * labelsGPU, double * data, double *distances, double* centroidsGPU, int * sizes, int n, int k, int iter, int dim){
   dim3 dimBlock(THREADS_PER_BLOCK);
   dim3 dimGrid(ceil((float)n/(float)THREADS_PER_BLOCK));
 
+  double *distancesD, *centroidsD, *dataD;
+  
   cudaError_t code = cudaMalloc(&distancesD, n * k * sizeof(double));
   if(code!=cudaSuccess){
     fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
@@ -372,7 +376,7 @@ int * launchCentroidDistanceUR(int * labelsGPU, double * data, double *distances
   }
   cudaMemcpy(dataD,data, n * dim * sizeof(double), cudaMemcpyHostToDevice);
   
-  b = 0;
+  int b = 0;
   while(b < iter){
     //for each vector
     //find the distance to each centroid
@@ -435,9 +439,11 @@ int * launchCentroidDistanceUR(int * labelsGPU, double * data, double *distances
   return labelsGPU;
 }
 
-int * launchCentroidConstantDistance(int * labelsGPU, double * data, double *distances, int sizes){
+int * launchCentroidConstantDistanceUR(int * labelsGPU, double * data, double *distances, double* centroidsGPU, int * sizes, int n, int k, int iter, int dim){
   dim3 dimBlock(THREADS_PER_BLOCK);
   dim3 dimGrid(ceil((float)n/(float)THREADS_PER_BLOCK));
+
+  double *distancesD, *dataD;
   
   cudaError_t code = cudaMalloc(&distancesD, n * k * sizeof(double));
   if(code!=cudaSuccess){
@@ -449,7 +455,7 @@ int * launchCentroidConstantDistance(int * labelsGPU, double * data, double *dis
   }
   cudaMemcpy(dataD,data, n * dim * sizeof(double), cudaMemcpyHostToDevice);
   
-  b = 0;
+  int b = 0;
   while(b < iter){
     //for each vector
     //find the distance to each centroid
@@ -464,7 +470,7 @@ int * launchCentroidConstantDistance(int * labelsGPU, double * data, double *dis
       }else if(dim%2==0){
 	centroidConstantDistance2UR2<<<dimGrid, dimBlock>>>(dataD, distancesD, k, dim, centroid, n);
       }else{
-	centroidConstantDistance<<<dimGrid, dimBlock>>>(dataD, distancesD, k, dim, centroid, n);
+	centroidConstantDistance2<<<dimGrid, dimBlock>>>(dataD, distancesD, k, dim, centroid, n);
       }
 
     }
@@ -519,9 +525,11 @@ int * launchCentroidConstantDistance(int * labelsGPU, double * data, double *dis
   return labelsGPU;
 }
 
-int * launchCentroidConstantDistanceUR(int * labelsGPU, double * data, double *distances, int sizes, int dims){
+int * launchCentroidConstantDistance(int * labelsGPU, double * data, double *distances, double* centroidsGPU, int * sizes, int n, int k, int iter, int dim){
   dim3 dimBlock(THREADS_PER_BLOCK);
   dim3 dimGrid(ceil((float)n/(float)THREADS_PER_BLOCK));
+
+  double *distancesD, *dataD;
   
   cudaError_t code = cudaMalloc(&distancesD, n * k * sizeof(double));
   if(code!=cudaSuccess){
@@ -533,7 +541,7 @@ int * launchCentroidConstantDistanceUR(int * labelsGPU, double * data, double *d
   }
   cudaMemcpy(dataD,data, n * dim * sizeof(double), cudaMemcpyHostToDevice);
   
-  b = 0;
+  int b = 0;
   while(b < iter){
     //for each vector
     //find the distance to each centroid
@@ -595,12 +603,12 @@ int * launchCentroidConstantDistanceUR(int * labelsGPU, double * data, double *d
   return labelsGPU;
 }
 
-int * launchLabelMins(int * labelsGPU, double * data, double *distances, int sizes){
+int * launchLabelMins(int * labelsGPU, double * data, double *distances, double* centroidsGPU, int *sizes, int n, int k, int iter, int dim){
   dim3 dimBlock(THREADS_PER_BLOCK);
   dim3 dimGrid(ceil((float)n/(float)THREADS_PER_BLOCK));
   
   int* labelsD;
-  
+  double *distancesD;
   cudaError_t code = cudaMalloc(&labelsD, n * sizeof(int));
   if(code!=cudaSuccess){
     fprintf(stderr,"LabelsD GPUassert: %s\n", cudaGetErrorName(code));
@@ -610,7 +618,7 @@ int * launchLabelMins(int * labelsGPU, double * data, double *distances, int siz
     fprintf(stderr,"DistancesD GPUassert: %s\n", cudaGetErrorName(code));
   }
   cudaMemcpy(distancesD, distances, n * k * sizeof(double), cudaMemcpyHostToDevice);
-  b = 0;
+  int b = 0;
   while(b < iter){
     //for each vector
     //find the distance to each centroid
@@ -633,7 +641,7 @@ int * launchLabelMins(int * labelsGPU, double * data, double *distances, int siz
     }
     
     cudaMemcpy(distancesD, distances, n * k * sizeof(double), cudaMemcpyHostToDevice);
-    labelMins<<<dimGrid, dimBlock>>>(labelsD, distancesD, k, n);
+    labelMins1<<<dimGrid, dimBlock>>>(labelsD, distancesD, k, n);
     cudaMemcpy(labelsGPU, labelsD, n * sizeof(int), cudaMemcpyDeviceToHost);
     //Classify each vecotr with its closeset centroid
     for(int vector = 0; vector < n; vector++){
@@ -681,12 +689,12 @@ int * launchLabelMins(int * labelsGPU, double * data, double *distances, int siz
   return labelsGPU;
 }
 
-int * launchThreadPerVectorWithLabels(int * labelsGPU, double * data, double *distances, int sizes){
+int * launchThreadPerVectorWithLabels(int * labelsGPU, double * data, double *distances,double* centroidsGPU, int * sizes, int n, int k, int iter, int dim){
   dim3 dimBlock(THREADS_PER_BLOCK);
   dim3 dimGrid(ceil((float)n/(float)THREADS_PER_BLOCK));
 
   int* labelsD;
-   
+  double *distancesD, *centroidsD, *dataD;
   cudaError_t   code = cudaMalloc(&distancesD, n * k * sizeof(double));
   if(code!=cudaSuccess){
     fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
@@ -705,7 +713,7 @@ int * launchThreadPerVectorWithLabels(int * labelsGPU, double * data, double *di
   }
   cudaMemcpy(dataD,data, n * dim * sizeof(double), cudaMemcpyHostToDevice);
   
-  b = 0;
+  int b = 0;
   while(b < iter){
     //for each vector
     //find the distance to each centroid
@@ -757,11 +765,95 @@ int * launchThreadPerVectorWithLabels(int * labelsGPU, double * data, double *di
   return labelsGPU;
 }
 
-int * launchCentroidConstantLabels(int * labelsGPU, double * data, double *distances, int sizes){
+int * launchThreadPerVectorWithLabelsUR(int * labelsGPU, double * data, double *distances,double* centroidsGPU, int * sizes, int n, int k, int iter, int dim){
   dim3 dimBlock(THREADS_PER_BLOCK);
   dim3 dimGrid(ceil((float)n/(float)THREADS_PER_BLOCK));
 
   int* labelsD;
+  double *distancesD, *centroidsD, *dataD;
+  cudaError_t   code = cudaMalloc(&distancesD, n * k * sizeof(double));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  code = cudaMalloc(&centroidsD, k * dim * sizeof(double));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  code = cudaMalloc(&dataD, n * dim * sizeof(double));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  code = cudaMalloc(&labelsD, n * sizeof(int));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  cudaMemcpy(dataD,data, n * dim * sizeof(double), cudaMemcpyHostToDevice);
+  
+  int b = 0;
+  while(b < iter){
+    //for each vector
+    //find the distance to each centroid
+    cudaMemcpy(centroidsD, centroidsGPU, k * dim * sizeof(double), cudaMemcpyHostToDevice);
+    cudaMemcpy(centroidsD, centroidsGPU, k * dim * sizeof(double), cudaMemcpyHostToDevice);
+    //cudaMemcpy(distancesD, distances, n * k * sizeof(double), cudaMemcpyHostToDevice);
+
+    if(dim%8==0){
+       vectorLabelDistance1UR8<<<dimGrid, dimBlock>>>(dataD, centroidsD, distancesD, k, dim, n, labelsD);
+    }else if(dim%4==0){
+      vectorLabelDistance1UR4<<<dimGrid, dimBlock>>>(dataD, centroidsD, distancesD, k, dim, n, labelsD);
+    }else if(dim%2==0){
+      vectorLabelDistance1UR2<<<dimGrid, dimBlock>>>(dataD, centroidsD, distancesD, k, dim, n, labelsD);
+    }else{
+      vectorLabelDistance1<<<dimGrid, dimBlock>>>(dataD, centroidsD, distancesD, k, dim, n, labelsD);
+    }
+    cudaMemcpy(labelsGPU, labelsD, n * sizeof(int), cudaMemcpyDeviceToHost);
+    //cudaMemcpy(distances, distancesD, n * k * sizeof(double), cudaMemcpyDeviceToHost);
+
+    //Reset sizes
+    for(int i = 0; i < k; i ++){
+      sizes[i] = 1;
+    }
+
+    //Go through each vector and update the mean of the classified centroid
+    for(int vector = 0; vector < n; vector++){
+      sizes[labelsGPU[vector]] += 1;
+      for(int d = 0; d < dim; d++){
+	centroidsGPU[labelsGPU[vector]*dim+d] = (centroidsGPU[labelsGPU[vector]*dim+d] * (sizes[labelsGPU[vector]]-1) + data[vector*dim+d]) / sizes[labelsGPU[vector]];
+      }
+    }
+    //iterate
+    b++;
+  }//END WHILE
+
+  for(int vector = 0; vector < n; vector++){
+    int minIndex = 0;
+    double min = 9999999;
+    
+    for(int centroid = 0; centroid < k; centroid++){
+      if( distances[(vector*k)+centroid] < min){
+	minIndex = centroid;
+	min = distances[(vector*k)+centroid];
+      }
+    }
+    labelsGPU[vector] = minIndex;
+    //printf("%d,%d,%d\n",(int)data[vector*dim],(int)data[vector*dim+1], minIndex);
+    //printf("%d,%d\n",vector, minIndex); 
+  }
+
+  cudaFree(distancesD);
+  cudaFree(centroidsD);
+  cudaFree(dataD);
+  cudaFree(labelsD);
+
+  return labelsGPU;
+}
+
+int * launchCentroidConstantLabels(int * labelsGPU, double * data, double *distances,double* centroidsGPU, int * sizes, int n, int k, int iter, int dim){
+  dim3 dimBlock(THREADS_PER_BLOCK);
+  dim3 dimGrid(ceil((float)n/(float)THREADS_PER_BLOCK));
+
+  int* labelsD;
+  double *distancesD, *centroidsD, *dataD;
   
   cudaError_t   code = cudaMalloc(&distancesD, n * k * sizeof(double));
   if(code!=cudaSuccess){
@@ -781,7 +873,7 @@ int * launchCentroidConstantLabels(int * labelsGPU, double * data, double *dista
   }
   cudaMemcpy(dataD,data, n * dim * sizeof(double), cudaMemcpyHostToDevice);
   
-  b = 0;
+  int b = 0;
   while(b < iter){
     //for each vector
     //find the distance to each centroid
@@ -807,9 +899,9 @@ int * launchCentroidConstantLabels(int * labelsGPU, double * data, double *dista
 	centroidsGPU[labelsGPU[vector]*dim+d] = (centroidsGPU[labelsGPU[vector]*dim+d] * (sizes[labelsGPU[vector]]-1) + data[vector*dim+d]) / sizes[labelsGPU[vector]];
       }
     }
-    for(int d = 0; d < dim; d ++){
-      fprintf(stderr, "centroidsGPU[%d]=%f\n", d, centroidsGPU[d]);
-    }
+    //for(int d = 0; d < dim; d ++){
+    //  fprintf(stderr, "centroidsGPU[%d]=%f\n", d, centroidsGPU[d]);
+    // }
     //iterate
     b++;
   }//END WHILE
@@ -838,10 +930,103 @@ int * launchCentroidConstantLabels(int * labelsGPU, double * data, double *dista
   return labelsGPU;
 }
 
-int * launchUpdateMeans(int * labelsGPU, double * data, double *distances, int sizes){
+int * launchCentroidConstantLabelsUR(int * labelsGPU, double * data, double *distances,double* centroidsGPU, int * sizes, int n, int k, int iter, int dim){
   dim3 dimBlock(THREADS_PER_BLOCK);
   dim3 dimGrid(ceil((float)n/(float)THREADS_PER_BLOCK));
+
+  int* labelsD;
+  double *distancesD, *centroidsD, *dataD;
+  
+  cudaError_t   code = cudaMalloc(&distancesD, n * k * sizeof(double));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  code = cudaMalloc(&centroidsD, k * dim * sizeof(double));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  code = cudaMalloc(&dataD, n * dim * sizeof(double));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  cudaMalloc(&labelsD, n * sizeof(int));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  cudaMemcpy(dataD,data, n * dim * sizeof(double), cudaMemcpyHostToDevice);
+  
+  int b = 0;
+  while(b < iter){
+    //for each vector
+    //find the distance to each centroid
+    for(int centroid = 0; centroid < k; centroid ++){
+      cudaMemcpyToSymbol(centroidCONST,  (centroidsGPU+centroid*dim), sizeof(double)*dim);
+      if(dim%8==0){
+	centroidConstantDistance2UR8<<<dimGrid, dimBlock>>>(dataD, distancesD, k, dim, centroid, n);
+      }else if(dim%4==0){	
+	centroidConstantDistance2UR4<<<dimGrid, dimBlock>>>(dataD, distancesD, k, dim, centroid, n);
+      }else if(dim%2==0){
+	centroidConstantDistance2UR2<<<dimGrid, dimBlock>>>(dataD, distancesD, k, dim, centroid, n);
+      }else{
+	centroidConstantDistance2<<<dimGrid, dimBlock>>>(dataD, distancesD, k, dim, centroid, n);
+      }
+    }
+    cudaMemcpy(distances, distancesD, n * k * sizeof(double), cudaMemcpyDeviceToHost);
+
+    //Reset sizes
+    for(int i = 0; i < k; i ++){
+      sizes[i] = 1;
+    }
+
+    cudaMemcpy(distancesD, distances, n * k * sizeof(double), cudaMemcpyHostToDevice);
+    labelMins1<<<dimGrid, dimBlock>>>(labelsD, distancesD, k, n);
+    cudaMemcpy(labelsGPU, labelsD, n * sizeof(int), cudaMemcpyDeviceToHost);
+
+    //Go through each vector and update the mean of the classified centroid
+    for(int vector = 0; vector < n; vector++){
+      sizes[labelsGPU[vector]] += 1;
+      for(int d = 0; d < dim; d++){
+	centroidsGPU[labelsGPU[vector]*dim+d] = (centroidsGPU[labelsGPU[vector]*dim+d] * (sizes[labelsGPU[vector]]-1) + data[vector*dim+d]) / sizes[labelsGPU[vector]];
+      }
+    }
+    //for(int d = 0; d < dim; d ++){
+    //  fprintf(stderr, "centroidsGPU[%d]=%f\n", d, centroidsGPU[d]);
+    // }
+    //iterate
+    b++;
+  }//END WHILE
+
+  for(int vector = 0; vector < n; vector++){
+    int minIndex = 0;
+    double min = 9999999;
+    
+    for(int centroid = 0; centroid < k; centroid++){
+      if( distances[(vector*k)+centroid] < min){
+	minIndex = centroid;
+	min = distances[(vector*k)+centroid];
+      }
+    }
+    labelsGPU[vector] = minIndex;
+    //printf("%d,%d,%d\n",(int)data[vector*dim],(int)data[vector*dim+1], minIndex);
+    //printf("%d,%d\n",vector, minIndex); 
+  }
  
+
+  cudaFree(distancesD);
+  cudaFree(centroidsD);
+  cudaFree(dataD);
+  cudaFree(labelsD);
+
+  return labelsGPU;
+}
+
+int * launchUpdateMeans(int * labelsGPU, double * data, double *distances,double* centroidsGPU, int * sizes, int n, int k, int iter, int dim){
+  dim3 dimBlock(THREADS_PER_BLOCK);
+  dim3 dimGrid(ceil((float)n/(float)THREADS_PER_BLOCK));
+
+  int *labelsD;
+  double *centroidsD, *dataD;
+  
   cudaError_t   code = cudaMalloc(&centroidsD, k * dim * sizeof(double));
   if(code!=cudaSuccess){
     fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
@@ -856,7 +1041,7 @@ int * launchUpdateMeans(int * labelsGPU, double * data, double *distances, int s
   }
   cudaMemcpy(dataD,data, n * dim * sizeof(double), cudaMemcpyHostToDevice);
   
-  b = 0;
+  int b = 0;
   while(b < iter){
     for(int vector = 0; vector < n; vector++){
       for(int centroid = 0; centroid < k; centroid++){
@@ -893,7 +1078,7 @@ int * launchUpdateMeans(int * labelsGPU, double * data, double *distances, int s
     cudaMemcpy(labelsD, labelsGPU, n * sizeof(int), cudaMemcpyHostToDevice);
     //cudaMemcpy(centroidsD, centroidsGPU, k * dim * sizeof(double), cudaMemcpyHostToDevice);
     cudaMemset(centroidsD, 0, k * dim * sizeof(double));
-    updateMeans<<<dimGrid, dimBlock>>>(dataD, centroidsD, labelsD, dim, n);
+    updateMeans1<<<dimGrid, dimBlock>>>(dataD, centroidsD, labelsD, dim, n);
     cudaMemcpy(centroidsGPU, centroidsD, k * dim * sizeof(double), cudaMemcpyDeviceToHost);
     //Load back sums
     
@@ -903,9 +1088,9 @@ int * launchUpdateMeans(int * labelsGPU, double * data, double *distances, int s
 	centroidsGPU[i*dim+d] = centroidsGPU[i*dim+d]/size;
       }
     }
-    for(int d = 0; d < dim; d ++){
-      fprintf(stderr, "centroidsGPU[%d]=%f\n", d, centroidsGPU[d]);
-    }
+    //for(int d = 0; d < dim; d ++){
+      //  fprintf(stderr, "centroidsGPU[%d]=%f\n", d, centroidsGPU[d]);
+    //}
     //iterate
     b++;
   }//END WHILE
@@ -925,11 +1110,92 @@ int * launchUpdateMeans(int * labelsGPU, double * data, double *distances, int s
     //printf("%d,%d\n",vector, minIndex); 
   }
 
-  cudaFree(distancesD);
   cudaFree(centroidsD);
   cudaFree(dataD);
 
   return labelsGPU;
+}
+
+int * launchGPU(int * labelsGPU, double * data, double *distances,double* centroidsGPU, int * sizes, int n, int k, int iter, int dim){
+  dim3 dimBlock(THREADS_PER_BLOCK);
+  dim3 dimGrid(ceil((float)n/(float)THREADS_PER_BLOCK));
+
+  int *labelsD;
+  int *sizesD;
+  double  *distancesD, *centroidsD, *dataD;
+  
+  cudaError_t   code = cudaMalloc(&centroidsD, k * dim * sizeof(double));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  code = cudaMalloc(&dataD, n * dim * sizeof(double));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  cudaMalloc(&labelsD, n * sizeof(int));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  cudaMalloc(&sizesD, k * sizeof(int));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  cudaMemcpy(dataD,data, n * dim * sizeof(double), cudaMemcpyHostToDevice);
+  
+  int b = 0;
+  while(b < iter){
+    //for each vector
+    //find the distance to each centroid
+    cudaMemcpy(centroidsD, centroidsGPU, k * dim * sizeof(double), cudaMemcpyHostToDevice);
+    cudaMemset(sizesD, 0, k * sizeof(int));
+    if(dim%8==0){
+      vectorLabelDistance1UR8<<<dimGrid, dimBlock>>>(dataD, centroidsD, distancesD, k, dim, n, labelsD, sizesD);
+    }else if(dim%4==0){
+      vectorLabelDistance1UR4<<<dimGrid, dimBlock>>>(dataD, centroidsD, distancesD, k, dim, n, labelsD, sizesD);
+    }else if(dim%2==0){
+      vectorLabelDistance1UR2<<<dimGrid, dimBlock>>>(dataD, centroidsD, distancesD, k, dim, n, labelsD, sizesD);
+    }else{
+      vectorLabelDistance1<<<dimGrid, dimBlock>>>(dataD, centroidsD, distancesD, k, dim, n, labelsD, sizesD);
+    }
+    
+    cudaMemset(centroidsD, 0, k * dim * sizeof(double));
+    updateMeans1<<<dimGrid, dimBlock>>>(dataD, centroidsD, labelsD, dim, n);
+    cudaMemcpy(centroidsGPU, centroidsD, k * dim * sizeof(double), cudaMemcpyDeviceToHost);
+    cudaMemcpy(sizes, sizesD, k * sizeof(int), cudaMemcpyDeviceToHost);
+    //Load back sums
+    
+    for(int i = 0; i < k; i ++){
+      double size = (double)sizes[i];
+      for(int d = 0; d < dim; d ++){
+	centroidsGPU[i*dim+d] = centroidsGPU[i*dim+d]/size;
+      }
+    }
+    b++;
+  }//END WHILE
+  
+  for(int vector = 0; vector < n; vector++){
+    int minIndex = 0;
+    double min = 9999999;
+    
+    for(int centroid = 0; centroid < k; centroid++){
+      if( distances[(vector*k)+centroid] < min){
+	minIndex = centroid;
+	min = distances[(vector*k)+centroid];
+      }
+    }
+    labelsGPU[vector] = minIndex;
+    //printf("%d,%d,%d\n",(int)data[vector*dim],(int)data[vector*dim+1], minIndex);
+    //printf("%d,%d\n",vector, minIndex); 
+  }
+
+  cudaFree(centroidsD);
+  cudaFree(dataD);
+  
+  return labelsGPU;
+}
+//IMPLEMENT
+int * launchGPUReduction(){
+  return NULL;
 }
 
 #endif // #ifndef LAUNCHES_H_
