@@ -211,7 +211,7 @@ int main( int argc, char **argv ){
   // 1a. Thread per Vector **************************************************
   memcpy(centroidsGPU, centroidsSTD, k * dim * sizeof(double));
   GPUstart = clock();
-  labelsGPU = launchVectorDistance(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
+  launchVectorDistance(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
   GPUend = clock();
   //CORRECTNESS 
   for(int i = 0; i < n; i++){
@@ -241,7 +241,7 @@ int main( int argc, char **argv ){
   // 2a. Thread per Centroid ***************************************
   memcpy(centroidsGPU, centroidsSTD, k * dim * sizeof(double));
   GPUstart = clock();
-  labelsGPU = launchCentroidDistance(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
+  launchCentroidDistance(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
   GPUend = clock();
   //CORRECTNESS 
   for(int i = 0; i < n; i++){
@@ -256,7 +256,7 @@ int main( int argc, char **argv ){
   // 2b. Thread per Centroid UnRolled
   memcpy(centroidsGPU, centroidsSTD, k * dim * sizeof(double));
   GPUstart = clock();
-  labelsGPU = launchCentroidDistanceUR(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
+  launchCentroidDistanceUR(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
   GPUend = clock();
   //CORRECTNESS 
   for(int i = 0; i < n; i++){
@@ -269,9 +269,10 @@ int main( int argc, char **argv ){
   fprintf(stderr,"CPU:TIME %f\n", (double) (CPUend-CPUstart)/CLOCKS_PER_SEC);
   fprintf(stderr,"GPU:TIME %f\n", (double) (GPUend-GPUstart)/CLOCKS_PER_SEC);
   // 3a. Thread per Centroid Constant Data ======================================
+  
   memcpy(centroidsGPU, centroidsSTD, k * dim * sizeof(double));
   GPUstart = clock();
-  labelsGPU = launchCentroidConstantDistance(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
+  launchCentroidConstantDistance(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
   GPUend = clock();
   //CORRECTNESS 
   for(int i = 0; i < n; i++){
@@ -283,7 +284,10 @@ int main( int argc, char **argv ){
   fprintf(stderr, "GPU centroidConstantDistance KERNEL is done\n");
   fprintf(stderr, "CPU:TIME %f\n", (double) (CPUend-CPUstart)/CLOCKS_PER_SEC);
   fprintf(stderr, "GPU:TIME %f\n", (double) (GPUend-GPUstart)/CLOCKS_PER_SEC);
+  
   // 3b. Thread per Centroid Constant Unrolled Data ======================================
+  fprintf(stderr, "GPU Thread per Centroid Constant Unrolled KERNEL timing is not faster than previooius solutions\n");
+  /*
   memcpy(centroidsGPU, centroidsSTD, k * dim * sizeof(double));
   GPUstart = clock();
   labelsGPU = launchCentroidConstantDistanceUR(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
@@ -298,7 +302,7 @@ int main( int argc, char **argv ){
   fprintf(stderr, "GPU centroidConstantDistance UNROLLED KERNEL is done\n");
   fprintf(stderr, "CPU:TIME %f\n", (double) (CPUend-CPUstart)/CLOCKS_PER_SEC);
   fprintf(stderr, "GPU:TIME %f\n", (double) (GPUend-GPUstart)/CLOCKS_PER_SEC);  
-  
+  */
   // 4. labeMins ====================================================================
   fprintf(stderr, "GPU labelMins KERNEL timing is depricated because it only takes off a second or 2\n");
   /*
@@ -320,7 +324,7 @@ int main( int argc, char **argv ){
   // 5a. Thread per vector with labels **************************************************
   memcpy(centroidsGPU, centroidsSTD, k * dim * sizeof(double));
   GPUstart = clock();
-  labelsGPU = launchThreadPerVectorWithLabels(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
+  launchThreadPerVectorWithLabels(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
   GPUend = clock();
   //CORRECTNESS 
   for(int i = 0; i < n; i++){
@@ -333,15 +337,15 @@ int main( int argc, char **argv ){
   fprintf(stderr, "GPU vectorLabelDistance KERNEL is DONE\n");
   fprintf(stderr,"CPU:TIME %f\n", (double) (CPUend-CPUstart)/CLOCKS_PER_SEC);
   fprintf(stderr,"GPU:TIME %f\n", (double) (GPUend-GPUstart)/CLOCKS_PER_SEC);
-  // 5b. Thread per vector with labels **************************************************
+  // 5b. Thread per vector unrooled with labels **************************************************
   memcpy(centroidsGPU, centroidsSTD, k * dim * sizeof(double));
   GPUstart = clock();
-  labelsGPU = launchThreadPerVectorWithLabelsUR(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
+  launchThreadPerVectorWithLabelsUR(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
   GPUend = clock();
   //CORRECTNESS 
   for(int i = 0; i < n; i++){
     if(labelsGOLD[i] != labelsGPU[i]){
-      fprintf(stderr, "GPU vectorLabelDistance UNROLLEDis not equal to CPU GOLD\n"); 
+      fprintf(stderr, "GPU vectorLabelDistance UNROLLED is not equal to CPU GOLD\n"); 
       //fprintf(stderr, "Gold[%d]=!=GPU[%d]\n",labelsGOLD[i], labelsGPU[i]); 
       break;
     }
@@ -349,10 +353,11 @@ int main( int argc, char **argv ){
   fprintf(stderr, "GPU vectorLabelDistance UNROLLED KERNEL is DONE\n");
   fprintf(stderr,"CPU:TIME %f\n", (double) (CPUend-CPUstart)/CLOCKS_PER_SEC);
   fprintf(stderr,"GPU:TIME %f\n", (double) (GPUend-GPUstart)/CLOCKS_PER_SEC);
+ 
   // 6a. ceontroidConstantDistance + labeMins ===========================================
   memcpy(centroidsGPU, centroidsSTD, k * dim * sizeof(double));
   GPUstart = clock();
-  labelsGPU = launchCentroidConstantLabels(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
+  launchCentroidConstantLabels(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
   GPUend = clock();
   //CORRECTNESS 
   for(int i = 0; i < n; i++){
@@ -365,6 +370,8 @@ int main( int argc, char **argv ){
   fprintf(stderr, "CPU:TIME %f\n", (double) (CPUend-CPUstart)/CLOCKS_PER_SEC);
   fprintf(stderr, "GPU:TIME %f\n", (double) (GPUend-GPUstart)/CLOCKS_PER_SEC);
    // 6b. ceontroidConstantDistance + labeMins ===========================================
+  fprintf(stderr, "GPU centroidConstantData Unrloled + labelMins KERNEL timing is depricated because it is worse tan normal unrolled or constant\n");
+  /*
   memcpy(centroidsGPU, centroidsSTD, k * dim * sizeof(double));
   GPUstart = clock();
   labelsGPU = launchCentroidConstantLabelsUR(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
@@ -379,9 +386,9 @@ int main( int argc, char **argv ){
   fprintf(stderr, "GPU centroidCentroidConstant Distance + Labels UNROLLED KERNEL is done\n");
   fprintf(stderr, "CPU:TIME %f\n", (double) (CPUend-CPUstart)/CLOCKS_PER_SEC);
   fprintf(stderr, "GPU:TIME %f\n", (double) (GPUend-GPUstart)/CLOCKS_PER_SEC);
- 
+  */
   // 7. update Means  ===========================================
-  fprintf(stderr, "GPU updateMeans KERNEL timing is depricated because it only takes 10 percent off timing\n");
+  fprintf(stderr, "GPU updateMeans and FULLPGUvector and centroid, atomics suckass, KERNEL timing is depricated because it only takes 10 percent off timing\n");
   /*
   memcpy(centroidsGPU, centroidsSTD, k * dim * sizeof(double));
   GPUstart = clock();
@@ -398,26 +405,43 @@ int main( int argc, char **argv ){
   fprintf(stderr, "GPU updateMeans KERNEL is done\n");
   fprintf(stderr, "CPU:TIME %f\n", (double) (CPUend-CPUstart)/CLOCKS_PER_SEC);
   fprintf(stderr, "GPU:TIME %f\n", (double) (GPUend-GPUstart)/CLOCKS_PER_SEC);
-  */
-  //8. FULL GPU IMplementation ==================================
+  
+  //8. FULL GPU vectorLabel Implementation ==================================
   memcpy(centroidsGPU, centroidsSTD, k * dim * sizeof(double));
   GPUstart = clock();
-  labelsGPU = launchGPU(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,dim);
+  launchGPUVector(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,dim);
   GPUend = clock();
   //CORRECTNESS 
   for(int i = 0; i < n; i++){
     //fprintf(stderr, "Vector:%d Gold:%d = labelsGPU:%d\n", i,labelsGOLD[i],labelsGPU[i] );
     if(labelsGOLD[i] != labelsGPU[i]){
-      fprintf(stderr, "GPU FULLGPU is not equal to CPU GOLD\n");
+      fprintf(stderr, "GPU FULLGPU vector is not equal to CPU GOLD\n");
       fprintf(stderr, " at %d\n", i); 
       break;
     }
   }
-  fprintf(stderr, "GPU FULLGPU KERNEL is done\n");
+  fprintf(stderr, "GPU FULLGPU using Vector Label KERNEL is done\n");
   fprintf(stderr, "CPU:TIME %f\n", (double) (CPUend-CPUstart)/CLOCKS_PER_SEC);
   fprintf(stderr, "GPU:TIME %f\n", (double) (GPUend-GPUstart)/CLOCKS_PER_SEC);
-
-  //9. GPU with full Reduction ================================
+  //9. FULL GPU ConstantCentroidLabel Implementation ==================================
+  memcpy(centroidsGPU, centroidsSTD, k * dim * sizeof(double));
+  GPUstart = clock();
+  launchGPUCentroid(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,dim);
+  GPUend = clock();
+  //CORRECTNESS 
+  for(int i = 0; i < n; i++){
+    //fprintf(stderr, "Vector:%d Gold:%d = labelsGPU:%d\n", i,labelsGOLD[i],labelsGPU[i] );
+    if(labelsGOLD[i] != labelsGPU[i]){
+      fprintf(stderr, "GPU FULLGPU using Constant Centroid is not equal to CPU GOLD\n");
+      fprintf(stderr, " at %d\n", i); 
+      break;
+    }
+  }
+  fprintf(stderr, "GPU FULLGPU using Constant Centroid KERNEL is done\n");
+  fprintf(stderr, "CPU:TIME %f\n", (double) (CPUend-CPUstart)/CLOCKS_PER_SEC);
+  fprintf(stderr, "GPU:TIME %f\n", (double) (GPUend-GPUstart)/CLOCKS_PER_SEC);
+  */
+  //10. GPU with full Reduction ================================
   fprintf(stderr, "GPU FULL REDUCTION KERNEL timing is depricated because its not implemented\n");
   
   fprintf(stderr, "GPU DONE \n"); 
