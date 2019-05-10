@@ -203,19 +203,20 @@ int main( int argc, char **argv ){
   CPUstart=clock();
   labelsGOLD = cpuGOLD(n, k, iter, dim, data, centroidsCPU);
   CPUend=clock();
-  free(centroidsCPU);
+  
   fprintf(stderr, "CPU DONE \n");
   fprintf(stderr, "CPU:TIME %f\n", (double) (CPUend-CPUstart)/CLOCKS_PER_SEC);
 
   //GPU IMPLEMENTATION =====================================================
   // 1a. Thread per Vector **************************************************
+  /*
   memcpy(centroidsGPU, centroidsSTD, k * dim * sizeof(double));
   GPUstart = clock();
   launchVectorDistance(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
   GPUend = clock();
   //CORRECTNESS 
-  for(int i = 0; i < n; i++){
-    if(labelsGOLD[i] != labelsGPU[i]){
+  for(int i = 0; i < k; i++){
+    if(centroidsSTD[i] != centroidsGPU[i]){
       fprintf(stderr, "GPU vectorDistance is not equal to CPU GOLD\n"); 
       break;
     }
@@ -229,8 +230,8 @@ int main( int argc, char **argv ){
   labelsGPU = launchVectorDistanceUR(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
   GPUend = clock();
   //CORRECTNESS 
-  for(int i = 0; i < n; i++){
-    if(labelsGOLD[i] != labelsGPU[i]){
+  for(int i = 0; i < k; i++){
+    if(centroidsSTD[i] != centroidsGPU[i]){
       fprintf(stderr, "GPU vectorDistanceUR is not equal to CPU GOLD\n"); 
       break;
     }
@@ -244,8 +245,8 @@ int main( int argc, char **argv ){
   launchCentroidDistance(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
   GPUend = clock();
   //CORRECTNESS 
-  for(int i = 0; i < n; i++){
-    if(labelsGOLD[i] != labelsGPU[i]){
+  for(int i = 0; i < k; i++){
+    if(centroidsSTD[i] != centroidsGPU[i]){
       fprintf(stderr, "GPU centroidDistance KERNEL is not equal to CPU GOLD\n"); 
       break;
     }
@@ -259,8 +260,8 @@ int main( int argc, char **argv ){
   launchCentroidDistanceUR(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
   GPUend = clock();
   //CORRECTNESS 
-  for(int i = 0; i < n; i++){
-    if(labelsGOLD[i] != labelsGPU[i]){
+  for(int i = 0; i < k; i++){
+    if(centroidsCPU[i] != centroidsGPU[i]){
       fprintf(stderr, "GPU centroidDistance Unrolled KERNEL is not equal to CPU GOLD\n"); 
       break;
     }
@@ -268,33 +269,133 @@ int main( int argc, char **argv ){
   fprintf(stderr, "GPU centroidDistance UnRolled KERNEL is done\n");
   fprintf(stderr,"CPU:TIME %f\n", (double) (CPUend-CPUstart)/CLOCKS_PER_SEC);
   fprintf(stderr,"GPU:TIME %f\n", (double) (GPUend-GPUstart)/CLOCKS_PER_SEC);
-  // 3a. Thread per Centroid Constant Data ======================================
-  
+  */
+  // 3a. Thread per Centroid Constant Data ======================================  
+  /*
   memcpy(centroidsGPU, centroidsSTD, k * dim * sizeof(double));
   GPUstart = clock();
   launchCentroidConstantDistance(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
   GPUend = clock();
   //CORRECTNESS 
-  for(int i = 0; i < n; i++){
-    if(labelsGOLD[i] != labelsGPU[i]){
+  for(int i = 0; i < k; i++){
+    if(centroidsCPU[i] != centroidsGPU[i]){
       fprintf(stderr, "GPU centroidConstantDistance is not equal to CPU GOLD\n"); 
       break;
     }
   }
-  fprintf(stderr, "GPU centroidConstantDistance KERNEL is done\n");
+  fprintf(stderr, "GPU centroidConstantDistance is done\n");
+  fprintf(stderr, "CPU:TIME %f\n", (double) (CPUend-CPUstart)/CLOCKS_PER_SEC);
+  fprintf(stderr, "GPU:TIME %f\n", (double) (GPUend-GPUstart)/CLOCKS_PER_SEC);
+  */
+  // 3b. Thread per Centroid Constant No SQUARE ROOT ======================================
+  memcpy(centroidsGPU, centroidsSTD, k * dim * sizeof(double));
+  GPUstart = clock();
+  launchCentroidConstantDistanceNSQR(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
+  GPUend = clock();
+  //CORRECTNESS 
+  for(int i = 0; i < k; i++){
+    if(centroidsCPU[i] != centroidsGPU[i]){
+      fprintf(stderr, "GPU centroidConstantDistance  NO SQUARE ROOT is not equal to CPU GOLD\n"); 
+      break;
+    }
+  }
+  fprintf(stderr, "GPU centroidConstantDistance NO SQUARE ROOT KERNEL KERNEL is done\n");
+  fprintf(stderr, "CPU:TIME %f\n", (double) (CPUend-CPUstart)/CLOCKS_PER_SEC);
+  fprintf(stderr, "GPU:TIME %f\n", (double) (GPUend-GPUstart)/CLOCKS_PER_SEC);
+
+  // 3b. Reduction ======================================
+  memcpy(centroidsGPU, centroidsSTD, k * dim * sizeof(double));
+  GPUstart = clock();
+  launchReduction(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
+  GPUend = clock();
+  //CORRECTNESS 
+  for(int i = 0; i < k; i++){
+    if(centroidsCPU[i] != centroidsGPU[i]){
+      fprintf(stderr, "GPU reduction  is not equal to CPU GOLD\n");
+      break;
+    }
+  }
+  fprintf(stderr, "GPU centroidConstantDistance reduction is done\n");
+  fprintf(stderr, "CPU:TIME %f\n", (double) (CPUend-CPUstart)/CLOCKS_PER_SEC);
+  fprintf(stderr, "GPU:TIME %f\n", (double) (GPUend-GPUstart)/CLOCKS_PER_SEC);
+  // 3b. Reduction Const ======================================
+  
+  memcpy(centroidsGPU, centroidsSTD, k * dim * sizeof(double));
+  GPUstart = clock();
+  launchReductionConst(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
+  GPUend = clock();
+  //CORRECTNESS 
+  for(int i = 0; i < k; i++){
+    if(centroidsCPU[i] != centroidsGPU[i]){
+      fprintf(stderr, "GPU reduction const is not equal to CPU GOLD\n"); 
+      break;
+    }
+  }
+  fprintf(stderr, "GPU reduction const reduction is done\n");
+  fprintf(stderr, "CPU:TIME %f\n", (double) (CPUend-CPUstart)/CLOCKS_PER_SEC);
+  fprintf(stderr, "GPU:TIME %f\n", (double) (GPUend-GPUstart)/CLOCKS_PER_SEC);
+
+  // 3b. Reduction ======================================
+  memcpy(centroidsGPU, centroidsSTD, k * dim * sizeof(double));
+  GPUstart = clock();
+  launchReductionUR(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
+  GPUend = clock();
+  //CORRECTNESS 
+  for(int i = 0; i < k; i++){
+    if(centroidsCPU[i] != centroidsGPU[i]){
+      fprintf(stderr, "GPU reduction UR is not equal to CPU GOLD\n");
+      break;
+    }
+  }
+  
+  fprintf(stderr, "GPU reduction ur reduction is done\n");
+  fprintf(stderr, "CPU:TIME %f\n", (double) (CPUend-CPUstart)/CLOCKS_PER_SEC);
+  fprintf(stderr, "GPU:TIME %f\n", (double) (GPUend-GPUstart)/CLOCKS_PER_SEC);
+  // 3b. Reduction Const ======================================
+  
+  memcpy(centroidsGPU, centroidsSTD, k * dim * sizeof(double));
+  GPUstart = clock();
+  launchReductionConstUR(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
+  GPUend = clock();
+  //CORRECTNESS 
+  for(int i = 0; i < k; i++){
+    if(centroidsCPU[i] != centroidsGPU[i]){
+      fprintf(stderr, "GPU reduction cosnt UR is not equal to CPU GOLD\n"); 
+      break;
+    }
+  }
+  fprintf(stderr, "GPU recution const UR reduction is done\n");
   fprintf(stderr, "CPU:TIME %f\n", (double) (CPUend-CPUstart)/CLOCKS_PER_SEC);
   fprintf(stderr, "GPU:TIME %f\n", (double) (GPUend-GPUstart)/CLOCKS_PER_SEC);
   
+  // 3c. Thread per Centroid Constant No square ======================================
+  /*
+    memcpy(centroidsGPU, centroidsSTD, k * dim * sizeof(double));
+    GPUstart = clock();
+  launchCentroidConstantDistanceNSQ(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
+  GPUend = clock();
+  //CORRECTNESS 
+  for(int i = 0; i < k; i++){
+    if(centroidsCPU[i] != centroidsGPU[i]){
+      fprintf(stderr, "GPU centroidConstantDistance NO SQUARE is not equal to CPU GOLD\n"); 
+      break;
+    }
+  }
+  fprintf(stderr, "GPU centroidConstantDistance NO SQUARE KERNEL is done\n");
+  fprintf(stderr, "CPU:TIME %f\n", (double) (CPUend-CPUstart)/CLOCKS_PER_SEC);
+  fprintf(stderr, "GPU:TIME %f\n", (double) (GPUend-GPUstart)/CLOCKS_PER_SEC);
+ */
+  
   // 3b. Thread per Centroid Constant Unrolled Data ======================================
-  fprintf(stderr, "GPU Thread per Centroid Constant Unrolled KERNEL timing is not faster than previooius solutions\n");
+  //fprintf(stderr, "GPU Thread per Centroid Constant Unrolled KERNEL timing is not faster than previooius solutions\n");
   /*
   memcpy(centroidsGPU, centroidsSTD, k * dim * sizeof(double));
   GPUstart = clock();
   labelsGPU = launchCentroidConstantDistanceUR(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
   GPUend = clock();
   //CORRECTNESS 
-  for(int i = 0; i < n; i++){
-    if(labelsGOLD[i] != labelsGPU[i]){
+  for(int i = 0; i < k; i++){
+    if(centroidsCPU[i] != centroidsGPU[i]){
       fprintf(stderr, "GPU centroidConstantDistance UNROLLED is not equal to CPU GOLD\n"); 
       break;
     }
@@ -304,15 +405,15 @@ int main( int argc, char **argv ){
   fprintf(stderr, "GPU:TIME %f\n", (double) (GPUend-GPUstart)/CLOCKS_PER_SEC);  
   */
   // 4. labeMins ====================================================================
-  fprintf(stderr, "GPU labelMins KERNEL timing is depricated because it only takes off a second or 2\n");
+  //fprintf(stderr, "GPU labelMins KERNEL timing is depricated because it only takes off a second or 2\n");
   /*
   memcpy(centroidsGPU, centroidsSTD, k * dim * sizeof(double));
   GPUstart = clock();
   labelsGPU = launchLabelMins(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
   GPUend = clock();
   //CORRECTNESS 
-  for(int i = 0; i < n; i++){
-    if(labelsGOLD[i] != labelsGPU[i]){
+  for(int i = 0; i < k; i++){
+    if(centroidsCPU[i] != centroidsGPU[i]){
       fprintf(stderr, "GPU labelMins is not equal to CPU GOLD\n"); 
       break;
     }
@@ -322,13 +423,14 @@ int main( int argc, char **argv ){
   printf("GPU:TIME %f\n", (double) (GPUend-GPUstart)/CLOCKS_PER_SEC);
   */
   // 5a. Thread per vector with labels **************************************************
+  /*
   memcpy(centroidsGPU, centroidsSTD, k * dim * sizeof(double));
   GPUstart = clock();
   launchThreadPerVectorWithLabels(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
   GPUend = clock();
   //CORRECTNESS 
-  for(int i = 0; i < n; i++){
-    if(labelsGOLD[i] != labelsGPU[i]){
+  for(int i = 0; i < k; i++){
+    if(centroidsCPU[i] != centroidsGPU[i]){
       fprintf(stderr, "GPU vectorLabelDistance is not equal to CPU GOLD\n"); 
       //fprintf(stderr, "Gold[%d]=!=GPU[%d]\n",labelsGOLD[i], labelsGPU[i]); 
       break;
@@ -343,8 +445,8 @@ int main( int argc, char **argv ){
   launchThreadPerVectorWithLabelsUR(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
   GPUend = clock();
   //CORRECTNESS 
-  for(int i = 0; i < n; i++){
-    if(labelsGOLD[i] != labelsGPU[i]){
+  for(int i = 0; i < k; i++){
+    if(centroidsCPU[i] != centroidsGPU[i]){
       fprintf(stderr, "GPU vectorLabelDistance UNROLLED is not equal to CPU GOLD\n"); 
       //fprintf(stderr, "Gold[%d]=!=GPU[%d]\n",labelsGOLD[i], labelsGPU[i]); 
       break;
@@ -360,8 +462,8 @@ int main( int argc, char **argv ){
   launchCentroidConstantLabels(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
   GPUend = clock();
   //CORRECTNESS 
-  for(int i = 0; i < n; i++){
-    if(labelsGOLD[i] != labelsGPU[i]){
+  for(int i = 0; i < k; i++){
+    if(centroidsCPU[i] != centroidsGPU[i]){
       fprintf(stderr, "GPU centroidCentroidConstant Distance + Labels is not equal to CPU GOLD\n");
       break;
     }
@@ -371,14 +473,13 @@ int main( int argc, char **argv ){
   fprintf(stderr, "GPU:TIME %f\n", (double) (GPUend-GPUstart)/CLOCKS_PER_SEC);
    // 6b. ceontroidConstantDistance + labeMins ===========================================
   fprintf(stderr, "GPU centroidConstantData Unrloled + labelMins KERNEL timing is depricated because it is worse tan normal unrolled or constant\n");
-  /*
   memcpy(centroidsGPU, centroidsSTD, k * dim * sizeof(double));
   GPUstart = clock();
   labelsGPU = launchCentroidConstantLabelsUR(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,  dim);
   GPUend = clock();
   //CORRECTNESS 
-  for(int i = 0; i < n; i++){
-    if(labelsGOLD[i] != labelsGPU[i]){
+  for(int i = 0; i < k; i++){
+    if(centroidsCPU[i] != centroidsGPU[i]){
       fprintf(stderr, "GPU centroidCentroidConstant Distance + Labels UNROLLED is not equal to CPU GOLD\n");
       break;
     }
@@ -388,16 +489,16 @@ int main( int argc, char **argv ){
   fprintf(stderr, "GPU:TIME %f\n", (double) (GPUend-GPUstart)/CLOCKS_PER_SEC);
   */
   // 7. update Means  ===========================================
-  fprintf(stderr, "GPU updateMeans and FULLPGUvector and centroid, atomics suckass, KERNEL timing is depricated because it only takes 10 percent off timing\n");
+  //fprintf(stderr, "GPU updateMeans and FULLPGUvector and centroid, atomics suckass, KERNEL timing is depricated because it only takes 10 percent off timing\n");
   /*
   memcpy(centroidsGPU, centroidsSTD, k * dim * sizeof(double));
   GPUstart = clock();
   labelsGPU =  launchUpdateMeans(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,dim);
   GPUend = clock();
   //CORRECTNESS 
-  for(int i = 0; i < n; i++){
-    if(labelsGOLD[i] != labelsGPU[i]){
-      fprintf(stderr, "GPU updateMeans is not equal to CPU GOLD\n");
+  for(int i = 0; i < k; i++){
+    if(centroidsCPU[i] != centroidsGPU[i]){
+     fprintf(stderr, "GPU updateMeans is not equal to CPU GOLD\n");
       //fprintf(stderr, " at %d\n", i); 
       break;
     }
@@ -412,9 +513,8 @@ int main( int argc, char **argv ){
   launchGPUVector(labelsGPU, data, distances, centroidsGPU, sizes, n, k, iter,dim);
   GPUend = clock();
   //CORRECTNESS 
-  for(int i = 0; i < n; i++){
-    //fprintf(stderr, "Vector:%d Gold:%d = labelsGPU:%d\n", i,labelsGOLD[i],labelsGPU[i] );
-    if(labelsGOLD[i] != labelsGPU[i]){
+  for(int i = 0; i < k; i++){
+    if(centroidsCPU[i] != centroidsGPU[i]){
       fprintf(stderr, "GPU FULLGPU vector is not equal to CPU GOLD\n");
       fprintf(stderr, " at %d\n", i); 
       break;
@@ -442,7 +542,7 @@ int main( int argc, char **argv ){
   fprintf(stderr, "GPU:TIME %f\n", (double) (GPUend-GPUstart)/CLOCKS_PER_SEC);
   */
   //10. GPU with full Reduction ================================
-  fprintf(stderr, "GPU FULL REDUCTION KERNEL timing is depricated because its not implemented\n");
+  //fprintf(stderr, "GPU FULL REDUCTION KERNEL timing is depricated because its not implemented\n");
   
   fprintf(stderr, "GPU DONE \n"); 
 

@@ -154,20 +154,7 @@ int * launchVectorDistance(int * labelsGPU, double * data, double *distances,dou
     b++;
   }//END WHILE
 
-  for(int vector = 0; vector < n; vector++){
-    int minIndex = 0;
-    double min = DBL_MAX;
-    
-    for(int centroid = 0; centroid < k; centroid++){
-      if( distances[(vector*k)+centroid] < min){
-	minIndex = centroid;
-	min = distances[(vector*k)+centroid];
-      }
-    }
-    labelsGPU[vector] = minIndex;
-    //printf("%d,%d,%d\n",(int)data[vector*dim],(int)data[vector*dim+1], minIndex);
-    //printf("%d,%d\n",vector, minIndex); 
-  }
+   
   
   cudaFree(distancesD);
   cudaFree(centroidsD);
@@ -243,20 +230,7 @@ int * launchVectorDistanceUR(int * labelsGPU, double * data, double *distances,d
     b++;
   }//END WHILE
 
-  for(int vector = 0; vector < n; vector++){
-    int minIndex = 0;
-    double min = DBL_MAX;
-    
-    for(int centroid = 0; centroid < k; centroid++){
-      if( distances[(vector*k)+centroid] < min){
-	minIndex = centroid;
-	min = distances[(vector*k)+centroid];
-      }
-    }
-    labelsGPU[vector] = minIndex;
-    //printf("%d,%d,%d\n",(int)data[vector*dim],(int)data[vector*dim+1], minIndex);
-    //printf("%d,%d\n",vector, minIndex); 
-  }
+   
   
   cudaFree(distancesD);
   cudaFree(centroidsD);
@@ -335,20 +309,7 @@ int * launchCentroidDistanceUR(int * labelsGPU, double * data, double *distances
     b++;
   }//END WHILE
 
-  for(int vector = 0; vector < n; vector++){
-    int minIndex = 0;
-    double min = DBL_MAX;
-    
-    for(int centroid = 0; centroid < k; centroid++){
-      if( distances[(vector*k)+centroid] < min){
-	minIndex = centroid;
-	min = distances[(vector*k)+centroid];
-      }
-    }
-    labelsGPU[vector] = minIndex;
-    //printf("%d,%d,%d\n",(int)data[vector*dim],(int)data[vector*dim+1], minIndex);
-    //printf("%d,%d\n",vector, minIndex); 
-  }
+   
 
   cudaFree(distancesD);
   cudaFree(centroidsD);
@@ -418,20 +379,7 @@ int * launchCentroidDistance(int * labelsGPU, double * data, double *distances, 
     b++;
   }//END WHILE
 
-  for(int vector = 0; vector < n; vector++){
-    int minIndex = 0;
-    double min = DBL_MAX;
-    
-    for(int centroid = 0; centroid < k; centroid++){
-      if( distances[(vector*k)+centroid] < min){
-	minIndex = centroid;
-	min = distances[(vector*k)+centroid];
-      }
-    }
-    labelsGPU[vector] = minIndex;
-    //printf("%d,%d,%d\n",(int)data[vector*dim],(int)data[vector*dim+1], minIndex);
-    //printf("%d,%d\n",vector, minIndex); 
-  }
+   
 
   cudaFree(distancesD);
   cudaFree(centroidsD);
@@ -457,10 +405,6 @@ int * launchCentroidConstantDistanceUR(int * labelsGPU, double * data, double *d
   
   int b = 0;
   while(b < iter){
-    //for each vector
-    //find the distance to each centroid
-    //cudaMemcpy(distancesD, distances, n * k * sizeof(double), cudaMemcpyHostToDevice);
-    //DO I actually need to copy over distances?
     for(int centroid = 0; centroid < k; centroid ++){
       cudaMemcpyToSymbol(centroidCONST,  centroidsGPU+centroid*dim, sizeof(double)*dim);
       if(dim%8==0){
@@ -506,20 +450,7 @@ int * launchCentroidConstantDistanceUR(int * labelsGPU, double * data, double *d
     b++;
   }//END WHILE
 
-  for(int vector = 0; vector < n; vector++){
-    int minIndex = 0;
-    double min = DBL_MAX;
-    
-    for(int centroid = 0; centroid < k; centroid++){
-      if( distances[(vector*k)+centroid] < min){
-	minIndex = centroid;
-	min = distances[(vector*k)+centroid];
-      }
-    }
-    labelsGPU[vector] = minIndex;
-    //printf("%d,%d,%d\n",(int)data[vector*dim],(int)data[vector*dim+1], minIndex);
-    //printf("%d,%d\n",vector, minIndex); 
-  }
+   
   cudaFree(distancesD);
   cudaFree(dataD);
   return labelsGPU;
@@ -543,10 +474,6 @@ int * launchCentroidConstantDistance(int * labelsGPU, double * data, double *dis
   
   int b = 0;
   while(b < iter){
-    //for each vector
-    //find the distance to each centroid
-    //cudaMemcpy(distancesD, distances, n * k * sizeof(double), cudaMemcpyHostToDevice);
-    //DO I actually need to copy over distances?
     for(int centroid = 0; centroid < k; centroid ++){
       cudaMemcpyToSymbol(centroidCONST,  centroidsGPU+centroid*dim, sizeof(double)*dim);
 
@@ -584,20 +511,133 @@ int * launchCentroidConstantDistance(int * labelsGPU, double * data, double *dis
     b++;
   }//END WHILE
 
-  for(int vector = 0; vector < n; vector++){
-    int minIndex = 0;
-    double min = DBL_MAX;
+   
+  cudaFree(distancesD);
+  cudaFree(dataD);
+  return labelsGPU;
+}
+
+int * launchCentroidConstantDistanceNSQR(int * labelsGPU, double * data, double *distances, double* centroidsGPU, int * sizes, int n, int k, int iter, int dim){
+  dim3 dimBlock(THREADS_PER_BLOCK);
+  dim3 dimGrid(ceil((float)n/(float)THREADS_PER_BLOCK));
+
+  double *distancesD, *dataD;
+  
+  cudaError_t code = cudaMalloc(&distancesD, n * k * sizeof(double));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  code = cudaMalloc(&dataD, n * dim * sizeof(double));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  cudaMemcpy(dataD,data, n * dim * sizeof(double), cudaMemcpyHostToDevice);
+  
+  int b = 0;
+  while(b < iter){
+    for(int centroid = 0; centroid < k; centroid ++){
+      cudaMemcpyToSymbol(centroidCONST,  centroidsGPU+centroid*dim, sizeof(double)*dim);
+
+      centroidConstantDistanceNSQR<<<dimGrid, dimBlock>>>(dataD, distancesD, k, dim, centroid, n);
+    }
+    cudaMemcpy(distances, distancesD, n * k * sizeof(double), cudaMemcpyDeviceToHost);
     
-    for(int centroid = 0; centroid < k; centroid++){
-      if( distances[(vector*k)+centroid] < min){
-	minIndex = centroid;
-	min = distances[(vector*k)+centroid];
+    //Reset sizes
+    for(int i = 0; i < k; i ++){
+      sizes[i] = 1;
+    }
+
+    //Classify each vecotr with its closeset centroid
+    for(int vector = 0; vector < n; vector++){
+      int minIndex = 0;
+      double min = DBL_MAX;
+      
+      for(int centroid = 0; centroid < k; centroid++){
+	if( distances[(vector*k)+centroid] < min){
+	  minIndex = centroid;
+	  min = distances[(vector*k)+centroid];
+	}
+      }
+      labelsGPU[vector] = minIndex;
+    }
+
+    //Go through each vector and update the mean of the classified centroid
+    for(int vector = 0; vector < n; vector++){
+      sizes[labelsGPU[vector]] += 1;
+      for(int d = 0; d < dim; d++){
+	centroidsGPU[labelsGPU[vector]*dim+d] = (centroidsGPU[labelsGPU[vector]*dim+d] * (sizes[labelsGPU[vector]]-1) + data[vector*dim+d]) / sizes[labelsGPU[vector]];
       }
     }
-    labelsGPU[vector] = minIndex;
-    //printf("%d,%d,%d\n",(int)data[vector*dim],(int)data[vector*dim+1], minIndex);
-    //printf("%d,%d\n",vector, minIndex); 
+    //iterate
+    b++;
+  }//END WHILE
+
+   
+  cudaFree(distancesD);
+  cudaFree(dataD);
+  return labelsGPU;
+}
+
+int * launchCentroidConstantDistanceNSQ(int * labelsGPU, double * data, double *distances, double* centroidsGPU, int * sizes, int n, int k, int iter, int dim){
+  dim3 dimBlock(THREADS_PER_BLOCK);
+  dim3 dimGrid(ceil((float)n/(float)THREADS_PER_BLOCK));
+
+  double *distancesD, *dataD;
+  
+  cudaError_t code = cudaMalloc(&distancesD, n * k * sizeof(double));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
   }
+  code = cudaMalloc(&dataD, n * dim * sizeof(double));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  cudaMemcpy(dataD,data, n * dim * sizeof(double), cudaMemcpyHostToDevice);
+  
+  int b = 0;
+  while(b < iter){
+    //for each vector
+    //find the distance to each centroid
+    //cudaMemcpy(distancesD, distances, n * k * sizeof(double), cudaMemcpyHostToDevice);
+    //DO I actually need to copy over distances?
+    for(int centroid = 0; centroid < k; centroid ++){
+      cudaMemcpyToSymbol(centroidCONST,  centroidsGPU+centroid*dim, sizeof(double)*dim);
+
+      centroidConstantDistanceNSQ<<<dimGrid, dimBlock>>>(dataD, distancesD, k, dim, centroid, n);
+    }
+    cudaMemcpy(distances, distancesD, n * k * sizeof(double), cudaMemcpyDeviceToHost);
+    
+    //Reset sizes
+    for(int i = 0; i < k; i ++){
+      sizes[i] = 1;
+    }
+
+    //Classify each vecotr with its closeset centroid
+    for(int vector = 0; vector < n; vector++){
+      int minIndex = 0;
+      double min = DBL_MAX;
+      
+      for(int centroid = 0; centroid < k; centroid++){
+	if( distances[(vector*k)+centroid] < min){
+	  minIndex = centroid;
+	  min = distances[(vector*k)+centroid];
+	}
+      }
+      labelsGPU[vector] = minIndex;
+    }
+
+    //Go through each vector and update the mean of the classified centroid
+    for(int vector = 0; vector < n; vector++){
+      sizes[labelsGPU[vector]] += 1;
+      for(int d = 0; d < dim; d++){
+	centroidsGPU[labelsGPU[vector]*dim+d] = (centroidsGPU[labelsGPU[vector]*dim+d] * (sizes[labelsGPU[vector]]-1) + data[vector*dim+d]) / sizes[labelsGPU[vector]];
+      }
+    }
+    //iterate
+    b++;
+  }//END WHILE
+
+   
   cudaFree(distancesD);
   cudaFree(dataD);
   return labelsGPU;
@@ -668,21 +708,6 @@ int * launchLabelMins(int * labelsGPU, double * data, double *distances, double*
     b++;
   }//END WHILE
   
-  for(int vector = 0; vector < n; vector++){
-    int minIndex = 0;
-    double min = DBL_MAX;
-    
-    for(int centroid = 0; centroid < k; centroid++){
-      if( distances[(vector*k)+centroid] < min){
-	minIndex = centroid;
-	min = distances[(vector*k)+centroid];
-      }
-    }
-    labelsGPU[vector] = minIndex;
-    //printf("%d,%d,%d\n",(int)data[vector*dim],(int)data[vector*dim+1], minIndex);
-    //printf("%d,%d\n",vector, minIndex); 
-  }
-  
   cudaFree(distancesD);
   cudaFree(labelsD);
   
@@ -742,20 +767,7 @@ int * launchThreadPerVectorWithLabels(int * labelsGPU, double * data, double *di
     b++;
   }//END WHILE
 
-  for(int vector = 0; vector < n; vector++){
-    int minIndex = 0;
-    double min = DBL_MAX;
-    
-    for(int centroid = 0; centroid < k; centroid++){
-      if( distances[(vector*k)+centroid] < min){
-	minIndex = centroid;
-	min = distances[(vector*k)+centroid];
-      }
-    }
-    labelsGPU[vector] = minIndex;
-    //printf("%d,%d,%d\n",(int)data[vector*dim],(int)data[vector*dim+1], minIndex);
-    //printf("%d,%d\n",vector, minIndex); 
-  }
+   
 
   cudaFree(distancesD);
   cudaFree(centroidsD);
@@ -798,7 +810,7 @@ int * launchThreadPerVectorWithLabelsUR(int * labelsGPU, double * data, double *
     //cudaMemcpy(distancesD, distances, n * k * sizeof(double), cudaMemcpyHostToDevice);
 
     if(dim%8==0){
-       vectorLabelDistance1UR8<<<dimGrid, dimBlock>>>(dataD, centroidsD, distancesD, k, dim, n, labelsD);
+      vectorLabelDistance1UR8<<<dimGrid, dimBlock>>>(dataD, centroidsD, distancesD, k, dim, n, labelsD);
     }else if(dim%4==0){
       vectorLabelDistance1UR4<<<dimGrid, dimBlock>>>(dataD, centroidsD, distancesD, k, dim, n, labelsD);
     }else if(dim%2==0){
@@ -825,20 +837,7 @@ int * launchThreadPerVectorWithLabelsUR(int * labelsGPU, double * data, double *
     b++;
   }//END WHILE
 
-  for(int vector = 0; vector < n; vector++){
-    int minIndex = 0;
-    double min = DBL_MAX;
-    
-    for(int centroid = 0; centroid < k; centroid++){
-      if( distances[(vector*k)+centroid] < min){
-	minIndex = centroid;
-	min = distances[(vector*k)+centroid];
-      }
-    }
-    labelsGPU[vector] = minIndex;
-    //printf("%d,%d,%d\n",(int)data[vector*dim],(int)data[vector*dim+1], minIndex);
-    //printf("%d,%d\n",vector, minIndex); 
-  }
+   
 
   cudaFree(distancesD);
   cudaFree(centroidsD);
@@ -903,20 +902,7 @@ int * launchCentroidConstantLabels(int * labelsGPU, double * data, double *dista
     b++;
   }//END WHILE
 
-  for(int vector = 0; vector < n; vector++){
-    int minIndex = 0;
-    double min = DBL_MAX;
-    
-    for(int centroid = 0; centroid < k; centroid++){
-      if( distances[(vector*k)+centroid] < min){
-	minIndex = centroid;
-	min = distances[(vector*k)+centroid];
-      }
-    }
-    labelsGPU[vector] = minIndex;
-    //printf("%d,%d,%d\n",(int)data[vector*dim],(int)data[vector*dim+1], minIndex);
-    //printf("%d,%d\n",vector, minIndex); 
-  }
+   
  
 
   cudaFree(distancesD);
@@ -993,20 +979,7 @@ int * launchCentroidConstantLabelsUR(int * labelsGPU, double * data, double *dis
     b++;
   }//END WHILE
 
-  for(int vector = 0; vector < n; vector++){
-    int minIndex = 0;
-    double min = DBL_MAX;
-    
-    for(int centroid = 0; centroid < k; centroid++){
-      if( distances[(vector*k)+centroid] < min){
-	minIndex = centroid;
-	min = distances[(vector*k)+centroid];
-      }
-    }
-    labelsGPU[vector] = minIndex;
-    //printf("%d,%d,%d\n",(int)data[vector*dim],(int)data[vector*dim+1], minIndex);
-    //printf("%d,%d\n",vector, minIndex); 
-  }
+   
  
 
   cudaFree(distancesD);
@@ -1086,26 +1059,13 @@ int * launchUpdateMeans(int * labelsGPU, double * data, double *distances,double
       }
     }
     //for(int d = 0; d < dim; d ++){
-      //  fprintf(stderr, "centroidsGPU[%d]=%f\n", d, centroidsGPU[d]);
+    //  fprintf(stderr, "centroidsGPU[%d]=%f\n", d, centroidsGPU[d]);
     //}
     //iterate
     b++;
   }//END WHILE
 
-  for(int vector = 0; vector < n; vector++){
-    int minIndex = 0;
-    double min = DBL_MAX;
-    
-    for(int centroid = 0; centroid < k; centroid++){
-      if( distances[(vector*k)+centroid] < min){
-	minIndex = centroid;
-	min = distances[(vector*k)+centroid];
-      }
-    }
-    labelsGPU[vector] = minIndex;
-    //printf("%d,%d,%d\n",(int)data[vector*dim],(int)data[vector*dim+1], minIndex);
-    //printf("%d,%d\n",vector, minIndex); 
-  }
+   
 
   cudaFree(centroidsD);
   cudaFree(dataD);
@@ -1134,7 +1094,7 @@ int * launchGPUVector(int * labelsGPU, double * data, double *distances,double* 
   if(code!=cudaSuccess){
     fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
   }
-   code = cudaMalloc(&labelsD, n * sizeof(int));
+  code = cudaMalloc(&labelsD, n * sizeof(int));
   if(code!=cudaSuccess){
     fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
   }
@@ -1175,21 +1135,6 @@ int * launchGPUVector(int * labelsGPU, double * data, double *distances,double* 
     b++;
   }//END WHILE
   
-  for(int vector = 0; vector < n; vector++){
-    int minIndex = 0;
-    double min = DBL_MAX;
-    
-    for(int centroid = 0; centroid < k; centroid++){
-      if( distances[(vector*k)+centroid] < min){
-	minIndex = centroid;
-	min = distances[(vector*k)+centroid];
-      }
-    }
-    labelsGPU[vector] = minIndex;
-    //printf("%d,%d,%d\n",(int)data[vector*dim],(int)data[vector*dim+1], minIndex);
-    //printf("%d,%d\n",vector, minIndex); 
-  }
-
   cudaFree(distancesD);
   cudaFree(centroidsD);
   cudaFree(dataD);
@@ -1219,7 +1164,7 @@ int * launchGPUCentroid(int * labelsGPU, double * data, double *distances,double
   if(code!=cudaSuccess){
     fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
   }
-   code = cudaMalloc(&labelsD, n * sizeof(int));
+  code = cudaMalloc(&labelsD, n * sizeof(int));
   if(code!=cudaSuccess){
     fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
   }
@@ -1240,9 +1185,7 @@ int * launchGPUCentroid(int * labelsGPU, double * data, double *distances,double
     }
 
     cudaMemset(sizesD, 0, k * sizeof(int));
-    labelMins1<<<dimGrid, dimBlock>>>(labelsD, distancesD, k, n, sizesD);
-   
-    cudaMemset(centroidsD, 0, k * dim * sizeof(double));
+    labelMins1<<<dimGrid, dimBlock>>>(labelsD, distancesD, k, n, sizesD);  cudaMemset(centroidsD, 0, k * dim * sizeof(double));
     updateMeans1<<<dimGrid, dimBlock>>>(dataD, centroidsD, labelsD, dim, n);
     cudaMemcpy(centroidsGPU, centroidsD, k * dim * sizeof(double), cudaMemcpyDeviceToHost);
     cudaMemcpy(sizes, sizesD, k * sizeof(int), cudaMemcpyDeviceToHost);
@@ -1257,28 +1200,540 @@ int * launchGPUCentroid(int * labelsGPU, double * data, double *distances,double
     b++;
   }//END WHILE
   
-  for(int vector = 0; vector < n; vector++){
-    int minIndex = 0;
-    double min = DBL_MAX;
-    
-    for(int centroid = 0; centroid < k; centroid++){
-      if( distances[(vector*k)+centroid] < min){
-	minIndex = centroid;
-	min = distances[(vector*k)+centroid];
-      }
-    }
-    
-    labelsGPU[vector] = minIndex;
-    //printf("%d,%d,%d\n",(int)data[vector*dim],(int)data[vector*dim+1], minIndex);
-    //printf("%d,%d\n",vector, minIndex); 
-  }
-
   return labelsGPU;
 }
 
-//IMPLEMENT
-int * launchGPUReduction(){
-  return NULL;
+/* Used as a helper for the > 512 case
+   Given the number of elements it returns the minimum x in the expression 512^x > number of elements */ 
+int fastSteps(int size)
+{
+  int steps = 0;
+  unsigned int mySize = 1;
+  while (mySize < size)
+    {
+      mySize <<= 9;
+      steps++;
+    }
+  return steps;
 }
+
+int * launchReduction(int * labelsGPU, double * data, double *distances,double* centroidsGPU, int * sizes, int n, int k, int iter, int dim){
+  dim3 dimBlock(THREADS_PER_BLOCK);
+  dim3 dimGrid(ceil((float)n/(float)THREADS_PER_BLOCK));
+  
+  int *labelsD;
+  int *sizesD;
+  double  *distancesD, *centroidsD, *dataD;
+  double *bufferD;
+  cudaError_t  code = cudaMalloc(&centroidsD, k * dim * sizeof(double));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  code = cudaMalloc(&distancesD, n * k * sizeof(double));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  code = cudaMalloc(&dataD, n * dim * sizeof(double));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  code = cudaMalloc(&bufferD, n * dim * sizeof(double));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  code = cudaMalloc(&labelsD, n * sizeof(int));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  code = cudaMalloc(&sizesD, k * sizeof(int));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  cudaMemcpy(dataD,data, n * dim * sizeof(double), cudaMemcpyHostToDevice);
+  
+  int b = 0;
+  int blockSize = 512;
+  //Calculate the number of blocks needed
+  int num_blocks = n / blockSize;
+  if (n % blockSize != 0){
+    num_blocks++;
+  }
+  //Calculates the number of iterations needed of kernel calls
+  int steps;
+  //Gives the spacing between adjacent elements at each step of the iteration
+  
+  int level;
+  while(b < iter){
+    //for each vector
+    //find the distance to each centroid
+    cudaMemset(sizesD, 0, k * sizeof(int));
+    if(dim%8==0){
+      vectorLabelDistance2UR8<<<dimGrid, dimBlock>>>(dataD, centroidsD, distancesD, k, dim, n, labelsD, sizesD);
+    }else if(dim%4==0){
+      vectorLabelDistance2UR4<<<dimGrid, dimBlock>>>(dataD, centroidsD, distancesD, k, dim, n, labelsD, sizesD);
+    }else if(dim%2==0){
+      vectorLabelDistance2UR2<<<dimGrid, dimBlock>>>(dataD, centroidsD, distancesD, k, dim, n, labelsD, sizesD);
+    }else{
+      vectorLabelDistance2<<<dimGrid, dimBlock>>>(dataD, centroidsD, distancesD, k, dim, n, labelsD, sizesD);
+    }
+
+    
+    for(int i = 0; i < k; i++){
+      reduceToBuffer<<<dimGrid, dimBlock>>>(dataD, bufferD, labelsD, dim, n, k);
+      level = 1;
+      steps = fastSteps(n);
+      //fprintf(stderr,"Fuck %d %d\n", b, i);
+      while(steps--){
+	//fprintf(stderr,"Fuck %d\n", steps);
+	//This takes the array, number of elements, and what each index has to be multiplied by
+	reduce<<<num_blocks, blockSize>>>(bufferD, centroidsD, labelsD, dim, n, k, level, sizesD);
+	//Multiply the level by 512
+	level <<= 9;
+	//Calculate the number blocks needed for the next iteration
+	int temp = num_blocks;
+	num_blocks /= blockSize;
+	if (temp % blockSize != 0){
+	  num_blocks++;
+	}
+      }
+    }
+    //At this points we have coorect labels and sizes
+    //We want to reduce into buffer
+    //We then want to reduce buffer
+    //   and divide by sizes
+    //So we can update buffers
+    b++;
+  }//END WHILE
+  cudaMemcpy(labelsGPU, labelsD, n * sizeof(int), cudaMemcpyDeviceToHost);
+  cudaMemcpy(centroidsGPU, centroidsD, n * sizeof(int), cudaMemcpyDeviceToHost);
+  
+  cudaFree(bufferD);
+  cudaFree(distancesD);
+  cudaFree(centroidsD);
+  cudaFree(dataD);
+  cudaFree(labelsD);
+  cudaFree(sizesD);
+  
+  return labelsGPU;
+}
+
+//add const
+
+int * launchReductionConst(int * labelsGPU, double * data, double *distances,double* centroidsGPU, int * sizes, int n, int k, int iter, int dim){
+  dim3 dimBlock(THREADS_PER_BLOCK);
+  dim3 dimGrid(ceil((float)n/(float)THREADS_PER_BLOCK));
+  
+  int *labelsD;
+  int *sizesD;
+  double  *distancesD, *centroidsD, *dataD;
+  double *bufferD;
+  cudaError_t  code = cudaMalloc(&centroidsD, k * dim * sizeof(double));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  code = cudaMalloc(&distancesD, n * k * sizeof(double));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  code = cudaMalloc(&dataD, n * dim * sizeof(double));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  code = cudaMalloc(&bufferD, n * dim * sizeof(double));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  code = cudaMalloc(&labelsD, n * sizeof(int));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  code = cudaMalloc(&sizesD, k * sizeof(int));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  cudaMemcpy(dataD,data, n * dim * sizeof(double), cudaMemcpyHostToDevice);
+  
+  int b = 0;
+  int blockSize = 512;
+  //Calculate the number of blocks needed
+  int num_blocks = n / blockSize;
+  if (n % blockSize != 0){
+    num_blocks++;
+  }
+  //Calculates the number of iterations needed of kernel calls
+  int steps;
+  //Gives the spacing between adjacent elements at each step of the iteration
+  
+  int level;
+  while(b < iter){
+    //for each vector
+    //find the distance to each centroid
+    for(int centroid = 0; centroid < k; centroid ++){
+      cudaMemcpyToSymbol(centroidCONST,  (centroidsGPU+centroid*dim), sizeof(double)*dim);
+      centroidConstantDistance<<<dimGrid, dimBlock>>>(dataD, distancesD, k, dim, centroid, n);
+    }
+    
+    labelMins1<<<dimGrid,dimBlock>>>(labelsD, distancesD, k, n, sizesD);
+
+    for(int i = 0; i < k; i++){
+      cudaMemset(sizesD, 0, k * sizeof(int));
+      reduceToBuffer<<<dimGrid, dimBlock>>>(dataD, bufferD, labelsD, dim, n, k);
+      level = 1;
+      steps = fastSteps(n);
+      //fprintf(stderr,"Fuck %d %d\n", b, i);
+      while(steps--)
+        {
+	  //fprintf(stderr,"Fuck %d\n", steps);
+	  //This takes the array, number of elements, and what each index has to be multiplied by
+	  reduce<<<num_blocks, blockSize>>>(bufferD, centroidsD, labelsD, dim, n, k, level, sizesD);
+	  //Multiply the level by 512
+	  level <<= 9;
+	  //Calculate the number blocks needed for the next iteration
+	  int temp = num_blocks;
+	  num_blocks /= blockSize;
+	  if (temp % blockSize != 0){
+	    num_blocks++;
+	  }
+        }
+      
+    }
+    //iterate
+    b++;
+  }//END WHILE
+  cudaMemcpy(labelsGPU, labelsD, n * sizeof(int), cudaMemcpyDeviceToHost);
+  cudaMemcpy(centroidsGPU, centroidsD, n * sizeof(int), cudaMemcpyDeviceToHost);
+  cudaFree(bufferD);
+  cudaFree(distancesD);
+  cudaFree(centroidsD);
+  cudaFree(dataD);
+  cudaFree(labelsD);
+  cudaFree(sizesD);
+  
+   
+  return labelsGPU;
+}
+
+int * launchReductionUR(int * labelsGPU, double * data, double *distances,double* centroidsGPU, int * sizes, int n, int k, int iter, int dim){
+  dim3 dimBlock(THREADS_PER_BLOCK);
+  dim3 dimGrid(ceil((float)n/(float)THREADS_PER_BLOCK));
+  
+  int *labelsD;
+  int *sizesD;
+  double  *distancesD, *centroidsD, *dataD;
+  double *bufferD;
+  cudaError_t  code = cudaMalloc(&centroidsD, k * dim * sizeof(double));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  code = cudaMalloc(&distancesD, n * k * sizeof(double));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  code = cudaMalloc(&dataD, n * dim * sizeof(double));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  code = cudaMalloc(&bufferD, n * dim * sizeof(double));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  code = cudaMalloc(&labelsD, n * sizeof(int));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  code = cudaMalloc(&sizesD, k * sizeof(int));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  cudaMemcpy(dataD,data, n * dim * sizeof(double), cudaMemcpyHostToDevice);
+  
+  int b = 0;
+  int blockSize = 512;
+  //Calculate the number of blocks needed
+  int num_blocks = n / blockSize;
+  if (n % blockSize != 0){
+    num_blocks++;
+  }
+  //Calculates the number of iterations needed of kernel calls
+  int steps;
+  //Gives the spacing between adjacent elements at each step of the iteration
+  
+  int level;
+  while(b < iter){
+    //for each vector
+    //find the distance to each centroid
+    cudaMemset(sizesD, 0, k * sizeof(int));
+    if(dim%8==0){
+      vectorLabelDistance2UR8<<<dimGrid, dimBlock>>>(dataD, centroidsD, distancesD, k, dim, n, labelsD, sizesD);
+      for(int i = 0; i < k; i++){
+	reduceToBufferUR8<<<dimGrid, dimBlock>>>(dataD, bufferD, labelsD, dim, n, k);
+	level = 1;
+	steps = fastSteps(n);
+	//fprintf(stderr,"Fuck %d %d\n", b, i);
+	while(steps--){
+	  //fprintf(stderr,"Fuck %d\n", steps);
+	  //This takes the array, number of elements, and what each index has to be multiplied by
+	  reduceUR8<<<num_blocks, blockSize>>>(bufferD, centroidsD, labelsD, dim, n, k, level, sizesD);
+	  //Multiply the level by 512
+	  level <<= 9;
+	  //Calculate the number blocks needed for the next iteration
+	  int temp = num_blocks;
+	  num_blocks /= blockSize;
+	  if (temp % blockSize != 0){
+	    num_blocks++;
+	  }
+	}
+      }
+    }else if(dim%4==0){
+      vectorLabelDistance2UR4<<<dimGrid, dimBlock>>>(dataD, centroidsD, distancesD, k, dim, n, labelsD, sizesD);
+      for(int i = 0; i < k; i++){
+	reduceToBufferUR4<<<dimGrid, dimBlock>>>(dataD, bufferD, labelsD, dim, n, k);
+	level = 1;
+	steps = fastSteps(n);
+	//fprintf(stderr,"Fuck %d %d\n", b, i);
+	while(steps--){
+	  //fprintf(stderr,"Fuck %d\n", steps);
+	  //This takes the array, number of elements, and what each index has to be multiplied by
+	  reduceUR4<<<num_blocks, blockSize>>>(bufferD, centroidsD, labelsD, dim, n, k, level, sizesD);
+	  //Multiply the level by 512
+	  level <<= 9;
+	  //Calculate the number blocks needed for the next iteration
+	  int temp = num_blocks;
+	  num_blocks /= blockSize;
+	  if (temp % blockSize != 0){
+	    num_blocks++;
+	  }
+	}
+      }
+    }else if(dim%2==0){
+      vectorLabelDistance2UR2<<<dimGrid, dimBlock>>>(dataD, centroidsD, distancesD, k, dim, n, labelsD, sizesD);
+      for(int i = 0; i < k; i++){
+	reduceToBufferUR2<<<dimGrid, dimBlock>>>(dataD, bufferD, labelsD, dim, n, k);
+	level = 1;
+	steps = fastSteps(n);
+	//fprintf(stderr,"Fuck %d %d\n", b, i);
+	while(steps--){
+	  //fprintf(stderr,"Fuck %d\n", steps);
+	  //This takes the array, number of elements, and what each index has to be multiplied by
+	  reduceUR2<<<num_blocks, blockSize>>>(bufferD, centroidsD, labelsD, dim, n, k, level, sizesD);
+	  //Multiply the level by 512
+	  level <<= 9;
+	  //Calculate the number blocks needed for the next iteration
+	  int temp = num_blocks;
+	  num_blocks /= blockSize;
+	  if (temp % blockSize != 0){
+	    num_blocks++;
+	  }
+	}
+      }
+    }else{
+      vectorLabelDistance2<<<dimGrid, dimBlock>>>(dataD, centroidsD, distancesD, k, dim, n, labelsD, sizesD);
+      for(int i = 0; i < k; i++){
+	reduceToBuffer<<<dimGrid, dimBlock>>>(dataD, bufferD, labelsD, dim, n, k);
+	level = 1;
+	steps = fastSteps(n);
+	//fprintf(stderr,"Fuck %d %d\n", b, i);
+	while(steps--){
+	  //fprintf(stderr,"Fuck %d\n", steps);
+	  //This takes the array, number of elements, and what each index has to be multiplied by
+	  reduce<<<num_blocks, blockSize>>>(bufferD, centroidsD, labelsD, dim, n, k, level, sizesD);
+	  //Multiply the level by 512
+	  level <<= 9;
+	  //Calculate the number blocks needed for the next iteration
+	  int temp = num_blocks;
+	  num_blocks /= blockSize;
+	  if (temp % blockSize != 0){
+	    num_blocks++;
+	  }
+	}
+      }
+    }    
+    //At this points we have coorect labels and sizes
+    //We want to reduce into buffer
+    //We then want to reduce buffer
+    //   and divide by sizes
+    //So we can update buffers
+    b++;
+  }//END WHILE
+  cudaMemcpy(labelsGPU, labelsD, n * sizeof(int), cudaMemcpyDeviceToHost);
+  cudaMemcpy(centroidsGPU, centroidsD, n * sizeof(int), cudaMemcpyDeviceToHost);
+  cudaFree(bufferD);
+  cudaFree(distancesD);
+  cudaFree(centroidsD);
+  cudaFree(dataD);
+  cudaFree(labelsD);
+  cudaFree(sizesD);
+  
+  return labelsGPU;
+}
+
+//add const
+
+int * launchReductionConstUR(int * labelsGPU, double * data, double *distances,double* centroidsGPU, int * sizes, int n, int k, int iter, int dim){
+  dim3 dimBlock(THREADS_PER_BLOCK);
+  dim3 dimGrid(ceil((float)n/(float)THREADS_PER_BLOCK));
+  
+  int *labelsD;
+  int *sizesD;
+  double  *distancesD, *centroidsD, *dataD;
+  double *bufferD;
+  cudaError_t  code = cudaMalloc(&centroidsD, k * dim * sizeof(double));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  code = cudaMalloc(&distancesD, n * k * sizeof(double));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  code = cudaMalloc(&dataD, n * dim * sizeof(double));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  code = cudaMalloc(&bufferD, n * dim * sizeof(double));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  code = cudaMalloc(&labelsD, n * sizeof(int));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  code = cudaMalloc(&sizesD, k * sizeof(int));
+  if(code!=cudaSuccess){
+    fprintf(stderr,"GPUassert: %s\n", cudaGetErrorName(code));
+  }
+  cudaMemcpy(dataD,data, n * dim * sizeof(double), cudaMemcpyHostToDevice);
+  
+  int b = 0;
+  int blockSize = 512;
+  //Calculate the number of blocks needed
+  int num_blocks = n / blockSize;
+  if (n % blockSize != 0){
+    num_blocks++;
+  }
+  //Calculates the number of iterations needed of kernel calls
+  int steps;
+  //Gives the spacing between adjacent elements at each step of the iteration
+  
+  int level;
+  while(b < iter){
+    //for each vector
+    //find the distance to each centroid
+    for(int centroid = 0; centroid < k; centroid ++){
+      cudaMemcpyToSymbol(centroidCONST,  (centroidsGPU+centroid*dim), sizeof(double)*dim);
+      centroidConstantDistance<<<dimGrid, dimBlock>>>(dataD, distancesD, k, dim, centroid, n);
+    }
+    
+    labelMins1<<<dimGrid,dimBlock>>>(labelsD, distancesD, k, n, sizesD);
+
+    if(dim%8==0){
+      for(int i = 0; i < k; i++){
+	cudaMemset(sizesD, 0, k * sizeof(int));
+	reduceToBufferUR8<<<dimGrid, dimBlock>>>(dataD, bufferD, labelsD, dim, n, k);
+	level = 1;
+	steps = fastSteps(n);
+	//fprintf(stderr,"Fuck %d %d\n", b, i);
+	while(steps--)
+	  {
+	    //fprintf(stderr,"Fuck %d\n", steps);
+	    //This takes the array, number of elements, and what each index has to be multiplied by
+	    reduceUR8<<<num_blocks, blockSize>>>(bufferD, centroidsD, labelsD, dim, n, k, level, sizesD);
+	    //Multiply the level by 512
+	    level <<= 9;
+	    //Calculate the number blocks needed for the next iteration
+	    int temp = num_blocks;
+	    num_blocks /= blockSize;
+	    if (temp % blockSize != 0){
+	      num_blocks++;
+	    }
+	  }
+      
+      }
+    }else if(dim%4==0){
+      for(int i = 0; i < k; i++){
+	cudaMemset(sizesD, 0, k * sizeof(int));
+	reduceToBufferUR4<<<dimGrid, dimBlock>>>(dataD, bufferD, labelsD, dim, n, k);
+	level = 1;
+	steps = fastSteps(n);
+	//fprintf(stderr,"Fuck %d %d\n", b, i);
+	while(steps--)
+	  {
+	    //fprintf(stderr,"Fuck %d\n", steps);
+	    //This takes the array, number of elements, and what each index has to be multiplied by
+	    reduceUR4<<<num_blocks, blockSize>>>(bufferD, centroidsD, labelsD, dim, n, k, level, sizesD);
+	    //Multiply the level by 512
+	    level <<= 9;
+	    //Calculate the number blocks needed for the next iteration
+	    int temp = num_blocks;
+	    num_blocks /= blockSize;
+	    if (temp % blockSize != 0){
+	      num_blocks++;
+	    }
+	  }
+      
+      }
+    }else if(dim%2==0){
+      for(int i = 0; i < k; i++){
+	cudaMemset(sizesD, 0, k * sizeof(int));
+	reduceToBufferUR2<<<dimGrid, dimBlock>>>(dataD, bufferD, labelsD, dim, n, k);
+	level = 1;
+	steps = fastSteps(n);
+	//fprintf(stderr,"Fuck %d %d\n", b, i);
+	while(steps--)
+	  {
+	    //fprintf(stderr,"Fuck %d\n", steps);
+	    //This takes the array, number of elements, and what each index has to be multiplied by
+	    reduceUR2<<<num_blocks, blockSize>>>(bufferD, centroidsD, labelsD, dim, n, k, level, sizesD);
+	    //Multiply the level by 512
+	    level <<= 9;
+	    //Calculate the number blocks needed for the next iteration
+	    int temp = num_blocks;
+	    num_blocks /= blockSize;
+	    if (temp % blockSize != 0){
+	      num_blocks++;
+	    }
+	  }
+      
+      }
+    }else{
+      for(int i = 0; i < k; i++){
+	cudaMemset(sizesD, 0, k * sizeof(int));
+	reduceToBuffer<<<dimGrid, dimBlock>>>(dataD, bufferD, labelsD, dim, n, k);
+	level = 1;
+	steps = fastSteps(n);
+	//fprintf(stderr,"Fuck %d %d\n", b, i);
+	while(steps--)
+	  {
+	    //fprintf(stderr,"Fuck %d\n", steps);
+	    //This takes the array, number of elements, and what each index has to be multiplied by
+	    reduce<<<num_blocks, blockSize>>>(bufferD, centroidsD, labelsD, dim, n, k, level, sizesD);
+	    //Multiply the level by 512
+	    level <<= 9;
+	    //Calculate the number blocks needed for the next iteration
+	    int temp = num_blocks;
+	    num_blocks /= blockSize;
+	    if (temp % blockSize != 0){
+	      num_blocks++;
+	    }
+	  }
+      
+      }
+    }
+    
+    //iterate
+    b++;
+  }//END WHILE
+  cudaMemcpy(labelsGPU, labelsD, n * sizeof(int), cudaMemcpyDeviceToHost);
+  cudaMemcpy(centroidsGPU, centroidsD, n * sizeof(int), cudaMemcpyDeviceToHost);
+  cudaFree(bufferD);
+  cudaFree(distancesD);
+  cudaFree(centroidsD);
+  cudaFree(dataD);
+  cudaFree(labelsD);
+  cudaFree(sizesD);
+  
+   
+  return labelsGPU;
+}
+
 
 #endif // #ifndef LAUNCHES_H_
